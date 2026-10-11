@@ -1,0 +1,1212 @@
+# 📊 Executive Report – Petstore Java EE 7: Java 8 → Java 25 Upgrade  
+  
+## 1. 🧭 Executive Summary  
+The Petstore Java EE 7 application (`org.agoncal.application:petstoreee7`, single-module WAR) was upgraded from Java 1.8 to Java 25. OpenRewrite ran the `com.amazonaws.java.migrate.UpgradeToJava25` recipe chain, which modernized the build, dependencies and source code. Kiro CLI then fixed the remaining compilation and test failures. ✅ The final outcome is `mvn clean verify` → BUILD SUCCESS on Amazon Corretto 25, with zero compilation errors and 9/9 unit tests passing. The `applicationPetstore.war` artifact was produced. The application stays on Java EE 7 with the `javax.*` namespace, so no jakarta migration was done. That is correct for the WildFly 10–26 target. ℹ️ No Spring upgrade was in scope: the log reports "Skipping Spring upgrade: no Spring project detected". The project does not use Spring, so no Spring version was verified or changed.  
+  
+## 2. 🏗️ Application Changes  
+- ☕ Java level: `maven.compiler.source/target` changed from `1.8` to `25`.  
+- 🔌 Build plugins upgraded for Java 25:  
+  - 📦 `maven-war-plugin` 3.1.0 → 3.5.1  
+  - 🧪 `maven-surefire-plugin` 3.0.0-M8 → 3.5.6  
+  - 🧪 `maven-failsafe-plugin` 3.0.0-M8 → 3.5.6  
+- 📚 Dependencies added for APIs removed from the JDK. All of these are javax-namespace (EE 8) coordinates:  
+  - `jakarta.xml.bind:jakarta.xml.bind-api` 2.3.3  
+  - `org.glassfish.jaxb:jaxb-runtime` 2.3.9 (runtime scope)  
+  - `jakarta.inject:jakarta.inject-api` 1.0.3  
+  - `jakarta.annotation:jakarta.annotation-api` 1.3.5 (provided scope)  
+- 🧪 Test library: `equalsverifier` 3.12.3 → 3.19.4. Kiro made this change because the Byte Buddy bundled in 3.12.3 only supports up to Java 20.  
+- 🌱 Spring: not applicable, since no Spring project was detected. There is no "Verified: effective Spring Framework version" line in the log because the Spring step was skipped.  
+- 📁 Footprint: 24 files changed in total (+65 / −37 lines). OpenRewrite changed 22 files (1 POM, 17 main sources, 4 integration tests). Kiro then edited 1 main source, the POM again, and 2 unit tests.  
+- 📈 OpenRewrite data table (`SourcesFileResults`): 103 source files were recorded with recipe results. Most of these entries are Java version markers that did not change any text. 22 files had actual edits.  
+  
+## 3. 🛠️ Tools Used  
+- ☕ Java SDK: Amazon Corretto 25.0.4.1 LTS (build 25.0.4.1+8), Apache Maven 3.9.13, `maven-compiler-plugin` 3.15.0.  
+- 🔄 OpenRewrite: `rewrite-maven-plugin` 6.42.0 with the `com.amazonaws.java.migrate.UpgradeToJava25` recipe. It chains UpgradeToJava8 → Java8toJava11 → UpgradeToJava17 → UpgradeToJava21 → UpgradeToJava25. The run took 1 min 21 s.  
+- 🤖 Amazon Kiro CLI: version 2.14.2, using the claude-opus-5.5 model. It did the automated build-fix and validation in 6 min 9 s.  
+- 🧠 CodeKB (MCP): used to map the pre-upgrade code before each fix. This covered `SimpleCallbackHandler.handle` and the `OrderLine`/`PurchaseOrder` equals/hashCode methods.  
+  
+## 4. 💻 Code Changes  
+### 🔄 Applied by OpenRewrite (confirmed in the log and git diff)  
+- 🔤 `ReplaceUnusedVariablesWithUnderscore`: unused catch variables became `_`, e.g. `catch (NoResultException _)`. Files: `CategoryEndpoint`, `CountryEndpoint`, `CustomerEndpoint`, `ItemEndpoint`, `ProductEndpoint`, `CustomerService`, `LoginContextProducer`, `ViewUtils`.  
+- 🖨️ `ReplaceSystemOutWithIOPrint`: `System.out.println` → `IO.println` (Java 25 `java.lang.IO`) in `LoginContextProducer`.  
+- 🌍 `UseLocaleOf`: `new Locale(language)` → `Locale.of(language)` in `LocaleBean`.  
+- 🏷️ `AddSerialAnnotationToSerialVersionUID`: added `@Serial` to 7 admin view beans (`CategoryBean`, `CountryBean`, `CustomerBean`, `ItemBean`, `OrderLineBean`, `ProductBean`, `PurchaseOrderBean`).  
+- 🔢 `PrimitiveWrapperClassConstructorToValueOf`: `new Integer(..)`/`new Float(..)` → `valueOf(..)` in 4 integration tests (`OrderLineServiceIT`, `PurchaseOrderServiceIT`, `OrderLineBeanIT`, `PurchaseOrderBeanIT`).  
+- 🔀 `InstanceOfPatternMatch` + `IfElseIfConstructToSwitch` on `SimpleCallbackHandler`: ❌ these produced broken code with unexpanded template placeholders (`__P__...`), which caused 4 compilation errors.  
+  
+### 🤖 Fixed by Kiro CLI  
+- 🩹 `security/SimpleCallbackHandler.java`: rewrote the broken switch as a valid Java 21+ pattern `switch`. Behaviour is unchanged: `NameCallback` → login, `PasswordCallback` → password, any other callback (including `null`) → `UnsupportedCallbackException`.  
+- 📦 `pom.xml`: bumped `equalsverifier` to 3.19.4. This fixed 9/9 unit test failures ("Java 25 (69) is not supported by … Byte Buddy").  
+- 🧪 `OrderLineTest`, `PurchaseOrderTest`: added `Warning.JPA_GETTER` to the existing `suppress(...)` call. EqualsVerifier 3.15+ added this check, which 3.12.3 never ran. The entity code is unchanged.  
+  
+## 5. ⏱️ Time Savings Estimate  
+- 🔄 OpenRewrite's own estimate (from the log): about 2 h 48 m saved for the recipe-driven edits.  
+- 🤖 Kiro build-fix cycle: 6 min 9 s, against an estimated 2–4 h manually. That work covered diagnosing the malformed recipe output, the Byte Buddy/Java 25 incompatibility, and the new EqualsVerifier JPA rule.  
+- 🧮 Overall: about 5–7 engineer-hours of manual effort, delivered in under 10 minutes of automated runtime. This is an estimate based on a small, single-module codebase (about 70 main classes and 22 edited files).  
+  
+## 6. 🚀 Next Steps  
+### ✅ Validation  
+- 🧪 Run the Arquillian integration tests, which are skipped by default (`skipITs=true`) and were not run: `mvn clean verify -Parquillian-wildfly-managed`.  
+- 🖥️ Confirm the runtime JVM: the WAR now contains Java 25 bytecode (class version 69). WildFly 26 is not officially certified on Java 25, so smoke-test deployment on the target server and JDK.  
+- 🔐 Do a functional check of login (`SimpleCallbackHandler` / `LoginContextProducer`) and the REST endpoints (`/rest/categories`, `/rest/items`, …).  
+- 👀 Do a code review of the uncommitted changes. Nothing has been committed yet.  
+  
+### 🔧 Improvements  
+- 🧹 Remove the stale `version.maven.compiler.plugin` property (3.1); the effective plugin is 3.15.0. Also delete the untracked `rewrite.yml`.  
+- 📦 Consider making `jakarta.inject-api` and `jakarta.xml.bind-api` `provided`, because WildFly supplies these APIs.  
+- 🖨️ Review `IO.println("ouch!!!")` in `LoginContextProducer` and replace it with the project's logger.  
+- 🧭 Longer term: Java EE 7 / WildFly 26 is end-of-life. Plan a Jakarta EE 10 migration (WildFly 27+, `javax` → `jakarta`) as a separate, deliberate project.  
+- 🌱 Spring: nothing to do, as the project has no Spring dependencies.  
+
+## Credit usage
+
+💳 Kiro CLI credits used: 15.84  
+
+## Codebase index refresh
+
+- Outcome: Index current
+- Reason: Index current at 725839cad3c52515b9702dec2edb3984df58d04f.
+- Previously indexed commit: 725839cad3c52515b9702dec2edb3984df58d04f
+- Source commit at transformation start: 725839cad3c52515b9702dec2edb3984df58d04f
+- Duration: 0.0s
+
+## Requirements register refresh
+
+- Outcome: Refreshed
+- Duration: 101.4s
+
+## Feature Parity Verification
+
+- Requirements evaluated: 160
+- Satisfied: 160
+- Regressions: 0
+- Unverified: 0
+- Behaviour-judged (changed requirements): 44
+
+### Verdict coverage
+
+Of 160 requirement(s): 0 test-backed, 44 behaviour-judged, 116 unchanged-by-construction, 0 unverified.
+
+No regressions were detected; every requirement is satisfied.
+
+### Satisfied (160) — reasoning
+
+- **FR-get-search-predicates-a84a96d1**: WHEN a caller invokes getSearchPredicates, the AbstractService SHALL return the search predicates for the given root and example.
+  - Acceptance criteria:
+    - AC1: WHEN getSearchPredicates completes normally, the AbstractService SHALL return a value of type Predicate[].
+    - AC2: WHEN getSearchPredicates is invoked, the AbstractService SHALL accept root of type Root&lt;T> and example of type T.
+  - Verdict: satisfied (evidence: judge-preserved)
+  - Reasoning: Behaviour judge (confidence: high) ruled the change behaviour-preserving: The getSearchPredicates implementations across all services are byte-for-byte identical between BEFORE and AFTER. No logic, predicate construction, or return behavior changed.
+  - Judge confidence: high
+  - Caveat: Static behavioural judgement of the before/after implementation, not an executed test.
+- **FR-get-id-dff3c8df**: WHEN a caller invokes getId, the Category SHALL return the id.
+  - Acceptance criteria:
+    - AC1: WHEN getId completes normally, the Category SHALL return this.id.
+  - Verdict: satisfied (evidence: judge-preserved)
+  - Reasoning: Behaviour judge (confidence: high) ruled the change behaviour-preserving: The getId() methods are unchanged in logic; only line numbers shifted slightly (likely due to unrelated code insertions elsewhere in the files), which is cosmetic and does not affect behavior.
+  - Judge confidence: high
+  - Caveat: Static behavioural judgement of the before/after implementation, not an executed test.
+- **FR-find-id-fadf90a3**: WHEN a caller invokes findById, the CategoryEndpoint SHALL create and execute the query to find the entity by id and return the result.
+  - Acceptance criteria:
+    - AC1: WHEN findById completes normally, the CategoryEndpoint SHALL return Response.ok(entity).build().
+    - AC2: WHEN findById runs, the CategoryEndpoint SHALL apply the @GET policy.
+    - AC3: WHEN findById runs, the CategoryEndpoint SHALL apply the @Produces( {"application/xml", "application/json"}) policy.
+    - AC4: WHEN findById runs, the CategoryEndpoint SHALL apply the @ApiOperation("Finds a category given an identifier") policy.
+    - AC5: WHEN findById is invoked, the CategoryEndpoint SHALL accept id of type Long.
+  - Verdict: satisfied (evidence: judge-preserved)
+  - Reasoning: Behaviour judge (confidence: high) ruled the change behaviour-preserving: The only change is renaming the unused caught exception variable from 'nre' to '_' (an expected pattern from the RenameUnderscoreIdentifier/UseUnnamedVariable style migration recipe), with identical catch block body and logic. The query construction, parameter binding, and result handling are otherwise unchanged.
+  - Judge confidence: high
+  - Caveat: Static behavioural judgement of the before/after implementation, not an executed test.
+- **FR-create-as-part-workflow-1b8aaf8f**: WHEN a caller invokes create, the CategoryEndpoint SHALL persist the entity and return the id.
+  - Acceptance criteria:
+    - AC1: WHEN create runs, the CategoryEndpoint SHALL call persist and getId.
+    - AC2: WHEN create completes normally, the CategoryEndpoint SHALL return Response.created(UriBuilder.fromResource(CategoryEndpoint.class).path(String.valueOf(entity.getId())).build()).build().
+    - AC3: WHEN create runs, the CategoryEndpoint SHALL apply the @POST policy.
+    - AC4: WHEN create runs, the CategoryEndpoint SHALL apply the @Consumes( {"application/xml", "application/json"}) policy.
+    - AC5: WHEN create runs, the CategoryEndpoint SHALL apply the @ApiOperation("Creates a category") policy.
+    - AC6: WHEN create is invoked, the CategoryEndpoint SHALL accept entity of type Category.
+  - Verdict: satisfied (evidence: judge-preserved)
+  - Reasoning: Behaviour judge (confidence: high) ruled the change behaviour-preserving: The create() implementations in CategoryEndpoint and related beans are byte-for-byte identical before and after, only line numbers shifted due to unrelated changes elsewhere in the file. No behavioural change observed.
+  - Judge confidence: high
+  - Caveat: Static behavioural judgement of the before/after implementation, not an executed test.
+- **FR-update-as-part-workflow-06ffd390**: WHEN a caller invokes update, the CategoryEndpoint SHALL update the entity.
+  - Acceptance criteria:
+    - AC1: WHEN update runs, the CategoryEndpoint SHALL call merge.
+    - AC2: WHEN update completes normally, the CategoryEndpoint SHALL return Response.noContent().build().
+    - AC3: WHEN update runs, the CategoryEndpoint SHALL apply the @PUT policy.
+    - AC4: WHEN update runs, the CategoryEndpoint SHALL apply the @Consumes( {"application/xml", "application/json"}) policy.
+    - AC5: WHEN update runs, the CategoryEndpoint SHALL apply the @ApiOperation("Updates a category") policy.
+    - AC6: WHEN update is invoked, the CategoryEndpoint SHALL accept entity of type Category.
+  - Verdict: satisfied (evidence: judge-preserved)
+  - Reasoning: Behaviour judge (confidence: high) ruled the change behaviour-preserving: The update() method logic in CategoryEndpoint and related beans is unchanged between BEFORE and AFTER; only line numbers shifted. Behaviour (merge, conflict handling, redirect logic) is identical.
+  - Judge confidence: high
+  - Caveat: Static behavioural judgement of the before/after implementation, not an executed test.
+- **FR-handles-calculation-for-dbe213e5**: WHEN a caller invokes count, the AbstractService SHALL create the count criteria and return the resulting count.
+  - Acceptance criteria:
+    - AC1: WHEN count runs, the AbstractService SHALL call getSearchPredicates.
+    - AC2: WHEN count completes normally, the AbstractService SHALL return count.
+    - AC3: WHEN count is invoked, the AbstractService SHALL accept example of type T.
+  - Verdict: satisfied (evidence: judge-preserved)
+  - Reasoning: Behaviour judge (confidence: high) ruled the change behaviour-preserving: The count() method in AbstractService is unchanged, and the 'count' field declarations in the beans are identical apart from line number shifts. No behavioural difference.
+  - Judge confidence: high
+  - Caveat: Static behavioural judgement of the before/after implementation, not an executed test.
+- **FR-delete-as-part-workflow-4816d325**: WHEN a caller invokes delete, the CategoryBean SHALL delete the category.
+  - Acceptance criteria:
+    - AC1: WHEN delete runs, the CategoryBean SHALL call findById, getId, remove and getMessage.
+    - AC2: WHEN delete completes normally, the CategoryBean SHALL return a value of type String.
+  - Verdict: satisfied (evidence: judge-preserved)
+  - Reasoning: Behaviour judge (confidence: high) ruled the change behaviour-preserving: The delete() method implementations are byte-for-byte identical between BEFORE and AFTER aside from line number shifts, which likely result from unrelated additions elsewhere in the file. Logic for ending conversation, finding entity, removing, flushing, and error handling is unchanged.
+  - Judge confidence: high
+  - Caveat: Static behavioural judgement of the before/after implementation, not an executed test.
+- **FR-get-add-34f66148**: WHEN a caller invokes getAdd, the CategoryBean SHALL return the add value.
+  - Acceptance criteria:
+    - AC1: WHEN getAdd completes normally, the CategoryBean SHALL return this.add.
+  - Verdict: satisfied (evidence: judge-preserved)
+  - Reasoning: Behaviour judge (confidence: high) ruled the change behaviour-preserving: getAdd() implementations are unchanged between BEFORE and AFTER, simply returning the 'add' field. Only line numbers differ.
+  - Judge confidence: high
+  - Caveat: Static behavioural judgement of the before/after implementation, not an executed test.
+- **FR-get-added-9cab957d**: WHEN a caller invokes getAdded, the CategoryBean SHALL return the added value.
+  - Acceptance criteria:
+    - AC1: WHEN getAdded completes normally, the CategoryBean SHALL return added.
+  - Verdict: satisfied (evidence: judge-preserved)
+  - Reasoning: Behaviour judge (confidence: high) ruled the change behaviour-preserving: getAdded() implementations are unchanged between BEFORE and AFTER: capture current 'add', reset to a new instance, return the captured value. Only line numbers differ.
+  - Judge confidence: high
+  - Caveat: Static behavioural judgement of the before/after implementation, not an executed test.
+- **FR-get-all-6effdb3c**: WHEN a caller invokes getAll, the CategoryBean SHALL create and execute the query to retrieve all categories and return the results.
+  - Acceptance criteria:
+    - AC1: WHEN getAll completes normally, the CategoryBean SHALL return a value of type List&lt;Category>.
+  - Verdict: satisfied (evidence: judge-preserved)
+  - Reasoning: Behaviour judge (confidence: high) ruled the change behaviour-preserving: The getAll() implementations are byte-for-byte identical between BEFORE and AFTER (only line numbers shifted). The query construction and execution logic is unchanged, so the behaviour is preserved.
+  - Judge confidence: high
+  - Caveat: Static behavioural judgement of the before/after implementation, not an executed test.
+- **FR-get-as-object-0001b92d**: WHEN a caller invokes getAsObject, the CategoryBean SHALL return the object representation of the given value for the given context and component.
+  - Acceptance criteria:
+    - AC1: WHEN getAsObject runs, the CategoryBean SHALL call findById.
+    - AC2: WHEN getAsObject completes normally, the CategoryBean SHALL return ejbProxy.findById(Long.valueOf(value)).
+    - AC3: WHEN getAsObject is invoked, the CategoryBean SHALL accept context, component and value as input.
+  - Verdict: satisfied (evidence: judge-preserved)
+  - Reasoning: Behaviour judge (confidence: high) ruled the change behaviour-preserving: The getAsObject() implementations are identical in both versions apart from line-number shifts; logic calling ejbProxy.findById(Long.valueOf(value)) is unchanged.
+  - Judge confidence: high
+  - Caveat: Static behavioural judgement of the before/after implementation, not an executed test.
+- **FR-get-as-string-f2718a1b**: WHEN a caller invokes getAsString, the CategoryBean SHALL return the string representation of the given value for the given context and component.
+  - Acceptance criteria:
+    - AC1: WHEN getAsString runs, the CategoryBean SHALL call getId.
+    - AC2: WHEN getAsString completes normally, the CategoryBean SHALL return String.valueOf(((Category) value).getId()).
+    - AC3: WHEN getAsString is invoked, the CategoryBean SHALL accept context, component and value as input.
+  - Verdict: satisfied (evidence: judge-preserved)
+  - Reasoning: Behaviour judge (confidence: high) ruled the change behaviour-preserving: The getAsString() implementations are identical in both versions apart from line-number shifts; null check and String.valueOf(id) logic unchanged.
+  - Judge confidence: high
+  - Caveat: Static behavioural judgement of the before/after implementation, not an executed test.
+- **FR-get-converter-45d6432d**: WHEN a caller invokes getConverter, the CategoryBean SHALL return the converter.
+  - Acceptance criteria:
+    - AC1: WHEN getConverter runs, the CategoryBean SHALL call getAsObject, findById, getAsString and getId.
+    - AC2: WHEN getConverter completes normally, the CategoryBean SHALL return String.valueOf(((Category) value).getId()).
+  - Verdict: satisfied (evidence: judge-preserved)
+  - Reasoning: Behaviour judge (confidence: high) ruled the change behaviour-preserving: The getConverter implementations are byte-for-byte identical between BEFORE and AFTER across all beans; only line numbers shifted slightly, consistent with unrelated cosmetic changes elsewhere in the file. Behaviour is unchanged.
+  - Judge confidence: high
+  - Caveat: Static behavioural judgement of the before/after implementation, not an executed test.
+- **FR-get-count-3e92e08c**: WHEN a caller invokes getCount, the CategoryBean SHALL return the count.
+  - Acceptance criteria:
+    - AC1: WHEN getCount completes normally, the CategoryBean SHALL return this.count.
+  - Verdict: satisfied (evidence: judge-preserved)
+  - Reasoning: Behaviour judge (confidence: high) ruled the change behaviour-preserving: getCount() implementations are unchanged in logic (return this.count) across all beans; only line numbers shifted. No behavioural change.
+  - Judge confidence: high
+  - Caveat: Static behavioural judgement of the before/after implementation, not an executed test.
+- **FR-get-example-7ba0ebcd**: WHEN a caller invokes getExample, the CategoryBean SHALL return the example.
+  - Acceptance criteria:
+    - AC1: WHEN getExample completes normally, the CategoryBean SHALL return this.example.
+  - Verdict: satisfied (evidence: judge-preserved)
+  - Reasoning: Behaviour judge (confidence: high) ruled the change behaviour-preserving: getExample() implementations are unchanged in logic (return this.example) across all beans; only line numbers shifted. No behavioural change.
+  - Judge confidence: high
+  - Caveat: Static behavioural judgement of the before/after implementation, not an executed test.
+- **FR-get-page-items-f6d57813**: WHEN a caller invokes getPageItems, the CategoryBean SHALL return the page items.
+  - Acceptance criteria:
+    - AC1: WHEN getPageItems completes normally, the CategoryBean SHALL return this.pageItems.
+  - Verdict: satisfied (evidence: judge-preserved)
+  - Reasoning: Behaviour judge (confidence: high) ruled the change behaviour-preserving: The method body is unchanged; only line numbers shifted. getPageItems still returns this.pageItems in all beans.
+  - Judge confidence: high
+  - Caveat: Static behavioural judgement of the before/after implementation, not an executed test.
+- **FR-get-page-size-eb6cf5e7**: WHEN a caller invokes getPageSize, the CategoryBean SHALL return the page size.
+  - Acceptance criteria:
+    - AC1: WHEN getPageSize completes normally, the CategoryBean SHALL return 10.
+  - Verdict: satisfied (evidence: judge-preserved)
+  - Reasoning: Behaviour judge (confidence: high) ruled the change behaviour-preserving: The method body is unchanged; only line numbers shifted. getPageSize still returns 10 in all beans.
+  - Judge confidence: high
+  - Caveat: Static behavioural judgement of the before/after implementation, not an executed test.
+- **FR-get-page-49a341cb**: WHEN a caller invokes getPage, the CategoryBean SHALL return the page.
+  - Acceptance criteria:
+    - AC1: WHEN getPage completes normally, the CategoryBean SHALL return this.page.
+  - Verdict: satisfied (evidence: judge-preserved)
+  - Reasoning: Behaviour judge (confidence: high) ruled the change behaviour-preserving: The method body is unchanged; only line numbers shifted. getPage still returns this.page in all beans.
+  - Judge confidence: high
+  - Caveat: Static behavioural judgement of the before/after implementation, not an executed test.
+- **FR-get-version-03fb865e**: WHEN a caller invokes getVersion, the Category SHALL return the version.
+  - Acceptance criteria:
+    - AC1: WHEN getVersion completes normally, the Category SHALL return this.version.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-list-all-a0d6b9f2**: WHEN a caller invokes listAll, the CategoryEndpoint SHALL create and execute the query to list all entities and return the results.
+  - Acceptance criteria:
+    - AC1: WHEN listAll completes normally, the CategoryEndpoint SHALL return results.
+    - AC2: WHEN listAll runs, the CategoryEndpoint SHALL apply the @GET policy.
+    - AC3: WHEN listAll runs, the CategoryEndpoint SHALL apply the @Produces( {"application/xml", "application/json"}) policy.
+    - AC4: WHEN listAll runs, the CategoryEndpoint SHALL apply the @ApiOperation("Lists all the categories") policy.
+    - AC5: WHEN listAll is invoked, the CategoryEndpoint SHALL accept startPosition of type Integer and maxResult of type Integer.
+  - Verdict: satisfied (evidence: judge-preserved)
+  - Reasoning: Behaviour judge (confidence: high) ruled the change behaviour-preserving: The listAll implementations in CategoryEndpoint and sibling endpoints, plus AbstractService.listAll(), are identical between BEFORE and AFTER. The query construction, pagination handling, and result retrieval logic are unchanged.
+  - Judge confidence: high
+  - Caveat: Static behavioural judgement of the before/after implementation, not an executed test.
+- **FR-delete-id-505c1543**: WHEN a caller invokes deleteById, the CategoryEndpoint SHALL delete the entity identified by the given id.
+  - Acceptance criteria:
+    - AC1: WHEN deleteById runs, the CategoryEndpoint SHALL call remove.
+    - AC2: WHEN deleteById completes normally, the CategoryEndpoint SHALL return Response.noContent().build().
+    - AC3: WHEN deleteById runs, the CategoryEndpoint SHALL apply the @DELETE policy.
+    - AC4: WHEN deleteById runs, the CategoryEndpoint SHALL apply the @ApiOperation("Deletes a category by id") policy.
+    - AC5: WHEN deleteById is invoked, the CategoryEndpoint SHALL accept id of type Long.
+  - Verdict: satisfied (evidence: judge-preserved)
+  - Reasoning: Behaviour judge (confidence: high) ruled the change behaviour-preserving: The deleteById implementations across all endpoints are byte-for-byte identical in BEFORE and AFTER, retaining the find-null-check-remove-noContent behavior.
+  - Judge confidence: high
+  - Caveat: Static behavioural judgement of the before/after implementation, not an executed test.
+- **FR-get-item-0864ecd3**: WHEN a caller invokes getItem, the OrderLine SHALL return the item.
+  - Acceptance criteria:
+    - AC1: WHEN getItem completes normally, the OrderLine SHALL return this.item.
+  - Verdict: satisfied (evidence: judge-preserved)
+  - Reasoning: Behaviour judge (confidence: high) ruled the change behaviour-preserving: getItem methods in OrderLine, ItemBean, CatalogBean, and ShoppingCartItem are functionally unchanged; only line numbers shifted in ItemBean (68-71 to 70-73), which is a cosmetic difference not affecting behavior.
+  - Judge confidence: high
+  - Caveat: Static behavioural judgement of the before/after implementation, not an executed test.
+- **FR-get-name-3c186000**: WHEN a caller invokes getName, the Category SHALL return the name.
+  - Acceptance criteria:
+    - AC1: WHEN getName completes normally, the Category SHALL return name.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-get-customer-8871d8a6**: WHEN a caller invokes getCustomer, the PurchaseOrder SHALL return the customer.
+  - Acceptance criteria:
+    - AC1: WHEN getCustomer completes normally, the PurchaseOrder SHALL return this.customer.
+  - Verdict: satisfied (evidence: judge-preserved)
+  - Reasoning: Behaviour judge (confidence: high) ruled the change behaviour-preserving: The getCustomer() implementations are identical in BEFORE and AFTER across PurchaseOrder, CustomerBean, and ShoppingCartBean; only line numbers shifted slightly, likely due to unrelated changes elsewhere in the file. Behaviour is unchanged.
+  - Judge confidence: high
+  - Caveat: Static behavioural judgement of the before/after implementation, not an executed test.
+- **FR-get-description-7fcdfbbc**: WHEN a caller invokes getDescription, the Category SHALL return the description.
+  - Acceptance criteria:
+    - AC1: WHEN getDescription completes normally, the Category SHALL return description.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-get-product-5bb969b6**: WHEN a caller invokes getProduct, the Item SHALL return the product.
+  - Acceptance criteria:
+    - AC1: WHEN getProduct completes normally, the Item SHALL return this.product.
+  - Verdict: satisfied (evidence: judge-preserved)
+  - Reasoning: Behaviour judge (confidence: high) ruled the change behaviour-preserving: The getProduct() implementations are identical in BEFORE and AFTER across Item, ProductBean, and CatalogBean; only line numbers shifted. No behavioural change.
+  - Judge confidence: high
+  - Caveat: Static behavioural judgement of the before/after implementation, not an executed test.
+- **FR-add-error-message-f9f34f60**: WHEN a caller invokes addErrorMessage, the AbstractBean SHALL add the error message to the message list.
+  - Acceptance criteria:
+    - AC1: WHEN addErrorMessage runs, the AbstractBean SHALL call getMessage.
+    - AC2: WHEN addErrorMessage is invoked, the AbstractBean SHALL accept message of type String and args of type Object....
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-get-category-92d78469**: WHEN a caller invokes getCategory, the Product SHALL return the category.
+  - Acceptance criteria:
+    - AC1: WHEN getCategory completes normally, the Product SHALL return this.category.
+  - Verdict: satisfied (evidence: judge-preserved)
+  - Reasoning: Behaviour judge (confidence: high) ruled the change behaviour-preserving: The getCategory() implementations are identical in BEFORE and AFTER across Product and CategoryBean; only line numbers shifted. No behavioural change.
+  - Judge confidence: high
+  - Caveat: Static behavioural judgement of the before/after implementation, not an executed test.
+- **FR-get-country-ffd299cb**: WHEN a caller invokes getCountry, the Address SHALL return the country.
+  - Acceptance criteria:
+    - AC1: WHEN getCountry completes normally, the Address SHALL return this.country.
+  - Verdict: satisfied (evidence: judge-preserved)
+  - Reasoning: Behaviour judge (confidence: high) ruled the change behaviour-preserving: The getCountry() implementation is identical in BEFORE and AFTER; only line numbers shifted, which is a cosmetic change unrelated to behaviour.
+  - Judge confidence: high
+  - Caveat: Static behavioural judgement of the before/after implementation, not an executed test.
+- **FR-get-credit-card-0008343a**: WHEN a caller invokes getCreditCard, the PurchaseOrder SHALL return the credit card.
+  - Acceptance criteria:
+    - AC1: WHEN getCreditCard completes normally, the PurchaseOrder SHALL return creditCard.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-get-login-558a2256**: WHEN a caller invokes getLogin, the Customer SHALL return the login.
+  - Acceptance criteria:
+    - AC1: WHEN getLogin completes normally, the Customer SHALL return login.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-get-password-e32cecec**: WHEN a caller invokes getPassword, the Customer SHALL return the password.
+  - Acceptance criteria:
+    - AC1: WHEN getPassword completes normally, the Customer SHALL return password.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-get-quantity-fffc19aa**: WHEN a caller invokes getQuantity, the OrderLine SHALL return the quantity.
+  - Acceptance criteria:
+    - AC1: WHEN getQuantity completes normally, the OrderLine SHALL return quantity.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-get-sub-total-02043bac**: WHEN a caller invokes getSubTotal, the OrderLine SHALL return the sub total.
+  - Acceptance criteria:
+    - AC1: WHEN getSubTotal runs, the OrderLine SHALL call getUnitCost.
+    - AC2: WHEN getSubTotal completes normally, the OrderLine SHALL return item.getUnitCost() * quantity.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-get-total-9093cbb0**: WHEN a caller invokes getTotal, the PurchaseOrder SHALL return the total.
+  - Acceptance criteria:
+    - AC1: WHEN getTotal completes normally, the PurchaseOrder SHALL return total.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-handles-authentication-f-da877e33**: WHEN a caller invokes setLogin, the Customer SHALL set the login to the given value.
+  - Acceptance criteria:
+    - AC1: WHEN setLogin is invoked, the Customer SHALL accept login of type String.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-handles-authentication-f-b2d1eadf**: WHILE the caller supplies password, WHEN a caller invokes setPassword, the Customer SHALL set the password to the given value.
+  - Acceptance criteria:
+    - AC1: WHEN setPassword is invoked, the Customer SHALL accept password of type String.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-handles-calculation-for-9d50f4ea**: WHEN a caller creates a Country, the Country SHALL initialize the Country with the given iso code, name, printable name, iso3 and numcode.
+  - Acceptance criteria:
+    - AC1: WHEN Country is constructed, the Country SHALL accept isoCode of type String, name of type String, printableName of type String, iso3 of type String and numcode of type String.
+  - Verdict: satisfied (evidence: judge-preserved)
+  - Reasoning: Behaviour judge (confidence: high) ruled the change behaviour-preserving: The Country constructor logic is unchanged, and the field declaration shift is purely a line-number/location change with no behavioural impact.
+  - Judge confidence: high
+  - Caveat: Static behavioural judgement of the before/after implementation, not an executed test.
+- **FR-handles-calculation-for-51a8d003**: WHEN a caller invokes setCountry, the Address SHALL set the country to the given value.
+  - Acceptance criteria:
+    - AC1: WHEN setCountry is invoked, the Address SHALL accept country of type Country.
+  - Verdict: satisfied (evidence: judge-preserved)
+  - Reasoning: Behaviour judge (confidence: high) ruled the change behaviour-preserving: setCountry() implementation is identical before and after; only line numbers differ, indicating no behavioural change.
+  - Judge confidence: high
+  - Caveat: Static behavioural judgement of the before/after implementation, not an executed test.
+- **FR-purchase-order-8fe14750**: WHEN a caller creates a PurchaseOrder, the PurchaseOrder SHALL initialize the PurchaseOrder with the given customer, credit card and delivery address.
+  - Acceptance criteria:
+    - AC1: WHEN PurchaseOrder is constructed, the PurchaseOrder SHALL accept customer of type Customer, creditCard of type CreditCard and deliveryAddress of type Address.
+  - Verdict: satisfied (evidence: judge-preserved)
+  - Reasoning: Behaviour judge (confidence: high) ruled the change behaviour-preserving: The constructor logic is unchanged; only the line number of an unrelated field declaration shifted, which is a cosmetic change not affecting behaviour.
+  - Judge confidence: high
+  - Caveat: Static behavioural judgement of the before/after implementation, not an executed test.
+- **FR-add-information-message-5647445a**: WHEN a caller invokes addInformationMessage, the AbstractBean SHALL add the information message to the message list.
+  - Acceptance criteria:
+    - AC1: WHEN addInformationMessage runs, the AbstractBean SHALL call getMessage.
+    - AC2: WHEN addInformationMessage is invoked, the AbstractBean SHALL accept message of type String and args of type Object....
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-add-item-cart-14a1440f**: WHEN a caller invokes addItemToCart, the ShoppingCartBean SHALL persist the item to cart.
+  - Acceptance criteria:
+    - AC1: WHEN addItemToCart runs, the ShoppingCartBean SHALL call findItem, getParamId, getItem, equals and setQuantity (+1 more).
+    - AC2: WHEN addItemToCart completes normally, the ShoppingCartBean SHALL return "showcart.faces".
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-add-warning-message-2128c56c**: WHEN a caller invokes addWarningMessage, the AbstractBean SHALL persist the null.
+  - Acceptance criteria:
+    - AC1: WHEN addWarningMessage runs, the AbstractBean SHALL call getMessage.
+    - AC2: WHEN addWarningMessage is invoked, the AbstractBean SHALL accept message of type String and args of type Object....
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-calculate-age-2d1ba1bd**: WHEN a caller invokes calculateAge, the Customer SHALL calculate the age.
+  - Acceptance criteria:
+    - AC1: WHEN calculateAge runs, the Customer SHALL apply the @PostLoad policy.
+    - AC2: WHEN calculateAge runs, the Customer SHALL apply the @PostPersist policy.
+    - AC3: WHEN calculateAge runs, the Customer SHALL apply the @PostUpdate policy.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-commit-transaction-46b2d42f**: WHEN a caller invokes commit, the SimpleLoginModule SHALL commit the transaction.
+  - Acceptance criteria:
+    - AC1: WHEN commit completes normally, the SimpleLoginModule SHALL return true.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-confirm-order-60110dff**: WHEN a caller invokes confirmOrder, the ShoppingCartBean SHALL create the order.
+  - Acceptance criteria:
+    - AC1: WHEN confirmOrder runs, the ShoppingCartBean SHALL call createOrder, getCustomer and getCartItems.
+    - AC2: WHEN confirmOrder completes normally, the ShoppingCartBean SHALL return "orderconfirmed.faces".
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-create-category-0faac781**: WHEN a caller invokes createCategory, the CatalogService SHALL persist the category.
+  - Acceptance criteria:
+    - AC1: WHEN createCategory runs, the CatalogService SHALL call persist.
+    - AC2: WHEN createCategory completes normally, the CatalogService SHALL return category.
+    - AC3: WHEN createCategory is invoked, the CatalogService SHALL accept category of type Category.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-create-customer-d464eb4d**: WHEN a caller invokes createCustomer, the CustomerService SHALL persist the customer.
+  - Acceptance criteria:
+    - AC1: WHEN createCustomer runs, the CustomerService SHALL call getHomeAddress, getCountry, getId, setCountry and persist.
+    - AC2: WHEN createCustomer completes normally, the CustomerService SHALL return customer.
+    - AC3: WHEN createCustomer is invoked, the CustomerService SHALL accept customer of type Customer.
+  - Verdict: satisfied (evidence: judge-preserved)
+  - Reasoning: Behaviour judge (confidence: high) ruled the change behaviour-preserving: The createCustomer method body is identical between BEFORE and AFTER; only a minor line range shift (likely formatting) occurred.
+  - Judge confidence: high
+  - Caveat: Static behavioural judgement of the before/after implementation, not an executed test.
+- **FR-create-item-31fee05a**: WHEN a caller invokes createItem, the CatalogService SHALL persist the item.
+  - Acceptance criteria:
+    - AC1: WHEN createItem runs, the CatalogService SHALL call getProduct, getId, persist and getCategory.
+    - AC2: WHEN createItem completes normally, the CatalogService SHALL return item.
+    - AC3: WHEN createItem is invoked, the CatalogService SHALL accept item of type Item.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-create-order-74ab9ebe**: WHEN a caller invokes createOrder, the PurchaseOrderService SHALL update the customer and persist the order.
+  - Acceptance criteria:
+    - AC1: WHEN createOrder runs, the PurchaseOrderService SHALL call getHomeAddress, getCountry, getId, setCountry and merge (+4 more).
+    - AC2: WHEN createOrder completes normally, the PurchaseOrderService SHALL return order.
+    - AC3: WHEN createOrder is invoked, the PurchaseOrderService SHALL accept customer of type Customer, creditCard of type CreditCard and cartItems of type List&lt;ShoppingCartItem>.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-create-product-a0a55744**: WHEN a caller invokes createProduct, the CatalogService SHALL persist the product.
+  - Acceptance criteria:
+    - AC1: WHEN createProduct runs, the CatalogService SHALL call getCategory, getId and persist.
+    - AC2: WHEN createProduct completes normally, the CatalogService SHALL return product.
+    - AC3: WHEN createProduct is invoked, the CatalogService SHALL accept product of type Product.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-find-all-categories-0ec0df52**: WHEN a caller invokes findAllCategories, the CatalogService SHALL create the named query and return all categories.
+  - Acceptance criteria:
+    - AC1: WHEN findAllCategories completes normally, the CatalogService SHALL return typedQuery.getResultList().
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-find-all-customers-e1dcc28e**: WHEN a caller invokes findAllCustomers, the CustomerService SHALL create the named query and return all customers.
+  - Acceptance criteria:
+    - AC1: WHEN findAllCustomers completes normally, the CustomerService SHALL return typedQuery.getResultList().
+  - Verdict: satisfied (evidence: judge-preserved)
+  - Reasoning: Behaviour judge (confidence: high) ruled the change behaviour-preserving: The findAllCustomers method is byte-for-byte identical between BEFORE and AFTER.
+  - Judge confidence: high
+  - Caveat: Static behavioural judgement of the before/after implementation, not an executed test.
+- **FR-find-all-items-1c35e7f8**: WHEN a caller invokes findAllItems, the CatalogService SHALL create the named query and return all items.
+  - Acceptance criteria:
+    - AC1: WHEN findAllItems completes normally, the CatalogService SHALL return typedQuery.getResultList().
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-find-all-orders-aa0250f4**: WHEN a caller invokes findAllOrders, the PurchaseOrderService SHALL create the named query and return all orders.
+  - Acceptance criteria:
+    - AC1: WHEN findAllOrders completes normally, the PurchaseOrderService SHALL return typedQuery.getResultList().
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-find-all-products-2b5a1b07**: WHEN a caller invokes findAllProducts, the CatalogService SHALL create the named query and return all products.
+  - Acceptance criteria:
+    - AC1: WHEN findAllProducts completes normally, the CatalogService SHALL return typedQuery.getResultList().
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-find-category-a5a78a88**: WHEN a caller invokes findCategory, the CatalogService SHALL create the named query and return the category for the given category name.
+  - Acceptance criteria:
+    - AC1: WHEN findCategory completes normally, the CatalogService SHALL return typedQuery.getSingleResult().
+    - AC2: WHEN findCategory is invoked, the CatalogService SHALL accept categoryName of type String.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-find-country-173bac07**: WHEN a caller invokes findCountry, the CustomerService SHALL return the country for the given country id.
+  - Acceptance criteria:
+    - AC1: WHEN findCountry completes normally, the CustomerService SHALL return entityManager.find(Country.class, countryId).
+    - AC2: WHEN findCountry is invoked, the CustomerService SHALL accept countryId of type Long.
+  - Verdict: satisfied (evidence: judge-preserved)
+  - Reasoning: Behaviour judge (confidence: high) ruled the change behaviour-preserving: BEFORE and AFTER implementations are identical; findCountry still delegates to entityManager.find(Country.class, countryId), preserving behaviour.
+  - Judge confidence: high
+  - Caveat: Static behavioural judgement of the before/after implementation, not an executed test.
+- **FR-find-customer-c59439e0**: WHILE the caller supplies password, WHEN a caller invokes findCustomer, the CustomerService SHALL create the named query and return the customer for the given login and password.
+  - Acceptance criteria:
+    - AC1: WHEN findCustomer completes normally, the CustomerService SHALL return typedQuery.getSingleResult().
+    - AC2: WHEN findCustomer is invoked, the CustomerService SHALL accept login of type String and password of type String.
+  - Verdict: satisfied (evidence: judge-preserved)
+  - Reasoning: Behaviour judge (confidence: high) ruled the change behaviour-preserving: BEFORE and AFTER implementations are identical; findCustomer still creates the named query, sets login/password parameters, and returns the single result.
+  - Judge confidence: high
+  - Caveat: Static behavioural judgement of the before/after implementation, not an executed test.
+- **FR-find-item-502e3c16**: WHEN a caller invokes findItem, the CatalogService SHALL return the item for the given item id.
+  - Acceptance criteria:
+    - AC1: WHEN findItem completes normally, the CatalogService SHALL return em.find(Item.class, itemId).
+    - AC2: WHEN findItem is invoked, the CatalogService SHALL accept itemId of type Long.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-find-items-dfc976e8**: WHEN a caller invokes findItems, the CatalogService SHALL create the named query and return the items for the given product id.
+  - Acceptance criteria:
+    - AC1: WHEN findItems completes normally, the CatalogService SHALL return typedQuery.getResultList().
+    - AC2: WHEN findItems is invoked, the CatalogService SHALL accept productId of type Long.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-find-order-079477c2**: WHEN a caller invokes findOrder, the PurchaseOrderService SHALL return the order for the given order id.
+  - Acceptance criteria:
+    - AC1: WHEN findOrder completes normally, the PurchaseOrderService SHALL return entityManager.find(PurchaseOrder.class, orderId).
+    - AC2: WHEN findOrder is invoked, the PurchaseOrderService SHALL accept orderId of type Long.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-find-product-2349774a**: WHEN a caller invokes findProduct, the CatalogService SHALL return the product for the given product id.
+  - Acceptance criteria:
+    - AC1: WHEN findProduct completes normally, the CatalogService SHALL return product.
+    - AC2: WHEN findProduct is invoked, the CatalogService SHALL accept productId of type Long.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-find-products-12c26b4d**: WHEN a caller invokes findProducts, the CatalogService SHALL create the named query and return the products for the given category name.
+  - Acceptance criteria:
+    - AC1: WHEN findProducts completes normally, the CatalogService SHALL return typedQuery.getResultList().
+    - AC2: WHEN findProducts is invoked, the CatalogService SHALL accept categoryName of type String.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-get-age-5b04b26a**: WHEN a caller invokes getAge, the Customer SHALL return the age.
+  - Acceptance criteria:
+    - AC1: WHEN getAge completes normally, the Customer SHALL return age.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-get-cart-items-cd35e85f**: WHEN a caller invokes getCartItems, the ShoppingCartBean SHALL return the cart items.
+  - Acceptance criteria:
+    - AC1: WHEN getCartItems completes normally, the ShoppingCartBean SHALL return cartItems.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-get-category-name-24829972**: WHEN a caller invokes getCategoryName, the CatalogBean SHALL return the category name.
+  - Acceptance criteria:
+    - AC1: WHEN getCategoryName completes normally, the CatalogBean SHALL return categoryName.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-get-city-5b62bdf0**: WHEN a caller invokes getCity, the Address SHALL return the city.
+  - Acceptance criteria:
+    - AC1: WHEN getCity completes normally, the Address SHALL return city.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-get-conversation-91713c3e**: WHEN a caller invokes getConversation, the ShoppingCartBean SHALL return the conversation.
+  - Acceptance criteria:
+    - AC1: WHEN getConversation completes normally, the ShoppingCartBean SHALL return conversation.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-get-credit-card-exp-date-b822b9e1**: WHEN a caller invokes getCreditCardExpDate, the CreditCard SHALL return the credit card exp date.
+  - Acceptance criteria:
+    - AC1: WHEN getCreditCardExpDate completes normally, the CreditCard SHALL return creditCardExpDate.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-get-credit-card-number-474431d8**: WHEN a caller invokes getCreditCardNumber, the CreditCard SHALL return the credit card number.
+  - Acceptance criteria:
+    - AC1: WHEN getCreditCardNumber completes normally, the CreditCard SHALL return creditCardNumber.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-get-credit-card-type-537665ec**: WHEN a caller invokes getCreditCardType, the CreditCard SHALL return the credit card type.
+  - Acceptance criteria:
+    - AC1: WHEN getCreditCardType completes normally, the CreditCard SHALL return creditCardType.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-get-credit-card-types-20398cc6**: WHEN a caller invokes getCreditCardTypes, the ShoppingCartBean SHALL return the credit card types.
+  - Acceptance criteria:
+    - AC1: WHEN getCreditCardTypes completes normally, the ShoppingCartBean SHALL return CreditCardType.values().
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-get-customer-service-89f471e2**: WHEN a caller invokes getCustomerService, the SimpleLoginModule SHALL return the customer service.
+  - Acceptance criteria:
+    - AC1: WHEN getCustomerService completes normally, the SimpleLoginModule SHALL return customerService.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-get-date-birth-bffd786c**: WHEN a caller invokes getDateOfBirth, the Customer SHALL return the date of the birth.
+  - Acceptance criteria:
+    - AC1: WHEN getDateOfBirth completes normally, the Customer SHALL return dateOfBirth.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-get-delivery-address-0d1e56bb**: WHEN a caller invokes getDeliveryAddress, the PurchaseOrder SHALL return the delivery address.
+  - Acceptance criteria:
+    - AC1: WHEN getDeliveryAddress completes normally, the PurchaseOrder SHALL return deliveryAddress.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-get-discount-rate-a42c3b43**: WHEN a caller invokes getDiscountRate, the PurchaseOrder SHALL return the discount rate.
+  - Acceptance criteria:
+    - AC1: WHEN getDiscountRate completes normally, the PurchaseOrder SHALL return discountRate.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-get-discount-dff991e9**: WHEN a caller invokes getDiscount, the PurchaseOrder SHALL return the discount.
+  - Acceptance criteria:
+    - AC1: WHEN getDiscount completes normally, the PurchaseOrder SHALL return discount.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-get-email-26eeff6e**: WHEN a caller invokes getEmail, the Customer SHALL return the email.
+  - Acceptance criteria:
+    - AC1: WHEN getEmail completes normally, the Customer SHALL return email.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-get-first-name-2cf892d7**: WHEN a caller invokes getFirstName, the Customer SHALL return the first name.
+  - Acceptance criteria:
+    - AC1: WHEN getFirstName completes normally, the Customer SHALL return firstName.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-get-free-memory-b2fcd9e8**: WHEN a caller invokes getFreeMemory, the DebugBean SHALL return the free memory.
+  - Acceptance criteria:
+    - AC1: WHEN getFreeMemory completes normally, the DebugBean SHALL return String.valueOf(Runtime.getRuntime().freeMemory()).
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-get-full-name-f798e5a8**: WHEN a caller invokes getFullName, the Customer SHALL return the full name.
+  - Acceptance criteria:
+    - AC1: WHEN getFullName completes normally, the Customer SHALL return firstName + " " + lastName.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-get-home-address-4d5bddcc**: WHEN a caller invokes getHomeAddress, the Customer SHALL return the home address.
+  - Acceptance criteria:
+    - AC1: WHEN getHomeAddress completes normally, the Customer SHALL return homeAddress.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-get-image-path-6ea80f02**: WHEN a caller invokes getImagePath, the Item SHALL return the image path.
+  - Acceptance criteria:
+    - AC1: WHEN getImagePath completes normally, the Item SHALL return imagePath.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-get-iso-code-9ef3a1e1**: WHEN a caller invokes getIsoCode, the Country SHALL return the ISO code.
+  - Acceptance criteria:
+    - AC1: WHEN getIsoCode completes normally, the Country SHALL return isoCode.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-get-iso3-5a404cb1**: WHEN a caller invokes getIso3, the Country SHALL return the ISO3 code.
+  - Acceptance criteria:
+    - AC1: WHEN getIso3 completes normally, the Country SHALL return iso3.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-get-item-id-ed134864**: WHEN a caller invokes getItemId, the CatalogBean SHALL return the item id.
+  - Acceptance criteria:
+    - AC1: WHEN getItemId completes normally, the CatalogBean SHALL return itemId.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-get-items-270238dc**: WHEN a caller invokes getItems, the CatalogBean SHALL return the list of items.
+  - Acceptance criteria:
+    - AC1: WHEN getItems completes normally, the CatalogBean SHALL return items.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-get-keyword-b103bda0**: WHEN a caller invokes getKeyword, the CatalogBean SHALL return the keyword.
+  - Acceptance criteria:
+    - AC1: WHEN getKeyword completes normally, the CatalogBean SHALL return keyword.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-get-language-abb045c8**: WHEN a caller invokes getLanguage, the LocaleBean SHALL return the language.
+  - Acceptance criteria:
+    - AC1: WHEN getLanguage completes normally, the LocaleBean SHALL return locale.getLanguage().
+  - Verdict: satisfied (evidence: judge-preserved)
+  - Reasoning: Behaviour judge (confidence: high) ruled the change behaviour-preserving: BEFORE and AFTER implementations are identical; getLanguage still returns locale.getLanguage().
+  - Judge confidence: high
+  - Caveat: Static behavioural judgement of the before/after implementation, not an executed test.
+- **FR-get-last-name-4aa0214d**: WHEN a caller invokes getLastName, the Customer SHALL return the last name.
+  - Acceptance criteria:
+    - AC1: WHEN getLastName completes normally, the Customer SHALL return lastName.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-get-list-all-query-80a89a6b**: WHEN a caller invokes getListAllQuery, the AbstractService SHALL construct and return the query used to retrieve all records.
+  - Acceptance criteria:
+    - AC1: WHEN getListAllQuery completes normally, the AbstractService SHALL return entityManager.createQuery(criteria.select(criteria.from(entityClass))).
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-get-locale-1914b59f**: WHEN a caller invokes getLocale, the LocaleBean SHALL return the locale.
+  - Acceptance criteria:
+    - AC1: WHEN getLocale completes normally, the LocaleBean SHALL return locale.
+  - Verdict: satisfied (evidence: judge-preserved)
+  - Reasoning: Behaviour judge (confidence: high) ruled the change behaviour-preserving: The getLocale method body is identical before and after; only line numbers differ.
+  - Judge confidence: high
+  - Caveat: Static behavioural judgement of the before/after implementation, not an executed test.
+- **FR-get-loggedin-customer-1de770ae**: WHEN a caller invokes getLoggedinCustomer, the AccountBean SHALL return the currently logged-in customer.
+  - Acceptance criteria:
+    - AC1: WHEN getLoggedinCustomer completes normally, the AccountBean SHALL return loggedinCustomer.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-get-message-7e227473**: WHEN a caller invokes getMessage, the AbstractBean SHALL return the localized message for the given faces context, message key, and arguments.
+  - Acceptance criteria:
+    - AC1: WHEN getMessage runs, the AbstractBean SHALL call getLocale.
+    - AC2: WHEN getMessage completes normally, the AbstractBean SHALL return MessageFormat.format(msgValue, args).
+    - AC3: WHEN getMessage is invoked, the AbstractBean SHALL accept facesContext of type FacesContext, msgKey of type String and args of type Object....
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-get-numcode-b68d820d**: WHEN a caller invokes getNumcode, the Country SHALL return the numeric code.
+  - Acceptance criteria:
+    - AC1: WHEN getNumcode completes normally, the Country SHALL return numcode.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-get-order-date-e5f7798e**: WHEN a caller invokes getOrderDate, the PurchaseOrder SHALL return the order date.
+  - Acceptance criteria:
+    - AC1: WHEN getOrderDate completes normally, the PurchaseOrder SHALL return orderDate.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-get-order-line-327496b3**: WHEN a caller invokes getOrderLine, the OrderLineBean SHALL return the order line.
+  - Acceptance criteria:
+    - AC1: WHEN getOrderLine completes normally, the OrderLineBean SHALL return this.orderLine.
+  - Verdict: satisfied (evidence: judge-preserved)
+  - Reasoning: Behaviour judge (confidence: high) ruled the change behaviour-preserving: The getOrderLine method body is unchanged; only line numbers shifted, likely due to unrelated code insertion above.
+  - Judge confidence: high
+  - Caveat: Static behavioural judgement of the before/after implementation, not an executed test.
+- **FR-get-order-lines-06bb769d**: WHEN a caller invokes getOrderLines, the PurchaseOrder SHALL return the list of order lines.
+  - Acceptance criteria:
+    - AC1: WHEN getOrderLines completes normally, the PurchaseOrder SHALL return this.orderLines.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-get-order-6e9e3f47**: WHEN a caller invokes getOrder, the ShoppingCartBean SHALL return the order.
+  - Acceptance criteria:
+    - AC1: WHEN getOrder completes normally, the ShoppingCartBean SHALL return order.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-get-param-id-607128d0**: WHEN a caller invokes getParamId, the AbstractBean SHALL return the parameter id for the given parameter.
+  - Acceptance criteria:
+    - AC1: WHEN getParamId runs, the AbstractBean SHALL call getParam.
+    - AC2: WHEN getParamId completes normally, the AbstractBean SHALL return Long.valueOf(getParam(param)).
+    - AC3: WHEN getParamId is invoked, the AbstractBean SHALL accept param of type String.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-get-param-8dab3675**: WHEN a caller invokes getParam, the AbstractBean SHALL return the parameter value for the given parameter.
+  - Acceptance criteria:
+    - AC1: WHEN getParam completes normally, the AbstractBean SHALL return map.get(param).
+    - AC2: WHEN getParam is invoked, the AbstractBean SHALL accept param of type String.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-get-password2-115a8130**: WHEN a caller invokes getPassword2, the CredentialsBean SHALL return the confirmation password (password2).
+  - Acceptance criteria:
+    - AC1: WHEN getPassword2 completes normally, the CredentialsBean SHALL return password2.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-get-printable-name-ce4f7ba8**: WHEN a caller invokes getPrintableName, the Country SHALL return the printable name.
+  - Acceptance criteria:
+    - AC1: WHEN getPrintableName completes normally, the Country SHALL return printableName.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-get-product-id-7419a5cb**: WHEN a caller invokes getProductId, the CatalogBean SHALL return the product id.
+  - Acceptance criteria:
+    - AC1: WHEN getProductId completes normally, the CatalogBean SHALL return productId.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-get-products-8c752d66**: WHEN a caller invokes getProducts, the CatalogBean SHALL return the list of products.
+  - Acceptance criteria:
+    - AC1: WHEN getProducts completes normally, the CatalogBean SHALL return products.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-get-purchase-order-b813d323**: WHEN a caller invokes getPurchaseOrder, the PurchaseOrderBean SHALL return the purchase order.
+  - Acceptance criteria:
+    - AC1: WHEN getPurchaseOrder completes normally, the PurchaseOrderBean SHALL return this.purchaseOrder.
+  - Verdict: satisfied (evidence: judge-preserved)
+  - Reasoning: Behaviour judge (confidence: high) ruled the change behaviour-preserving: The getPurchaseOrder method body is unchanged; only line numbers shifted.
+  - Judge confidence: high
+  - Caveat: Static behavioural judgement of the before/after implementation, not an executed test.
+- **FR-get-role-34819364**: WHEN a caller invokes getRole, the Customer SHALL return the role.
+  - Acceptance criteria:
+    - AC1: WHEN getRole completes normally, the Customer SHALL return role.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-get-state-c08bc75d**: WHEN a caller invokes getState, the Address SHALL return the state.
+  - Acceptance criteria:
+    - AC1: WHEN getState completes normally, the Address SHALL return state.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-get-street1-c843f36d**: WHEN a caller invokes getStreet1, the Address SHALL return the first street line (street1).
+  - Acceptance criteria:
+    - AC1: WHEN getStreet1 completes normally, the Address SHALL return street1.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-get-street2-1c4eda55**: WHEN a caller invokes getStreet2, the Address SHALL return the second street line (street2).
+  - Acceptance criteria:
+    - AC1: WHEN getStreet2 completes normally, the Address SHALL return street2.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-get-telephone-e1f86527**: WHEN a caller invokes getTelephone, the Customer SHALL return the telephone number.
+  - Acceptance criteria:
+    - AC1: WHEN getTelephone completes normally, the Customer SHALL return telephone.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-get-thread-stack-82f5a230**: WHEN a caller invokes getThreadStack, the DebugBean SHALL return the current thread stack.
+  - Acceptance criteria:
+    - AC1: WHEN getThreadStack completes normally, the DebugBean SHALL return elements.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-get-total-memory-35e98e48**: WHEN a caller invokes getTotalMemory, the DebugBean SHALL return the total memory.
+  - Acceptance criteria:
+    - AC1: WHEN getTotalMemory completes normally, the DebugBean SHALL return String.valueOf(Runtime.getRuntime().totalMemory()).
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-get-total-vat-872e79c2**: WHEN a caller invokes getTotalWithVat, the PurchaseOrder SHALL return the total amount including VAT.
+  - Acceptance criteria:
+    - AC1: WHEN getTotalWithVat completes normally, the PurchaseOrder SHALL return totalWithVat.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-get-total-without-vat-82d3d188**: WHEN a caller invokes getTotalWithoutVat, the PurchaseOrder SHALL return the total amount excluding VAT.
+  - Acceptance criteria:
+    - AC1: WHEN getTotalWithoutVat completes normally, the PurchaseOrder SHALL return totalWithoutVat.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-get-unit-cost-018c0040**: WHEN a caller invokes getUnitCost, the Item SHALL return the unit cost.
+  - Acceptance criteria:
+    - AC1: WHEN getUnitCost completes normally, the Item SHALL return unitCost.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-get-uuid-0d84b773**: WHEN a caller invokes getUuid, the Customer SHALL return the UUID.
+  - Acceptance criteria:
+    - AC1: WHEN getUuid completes normally, the Customer SHALL return uuid.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-get-vat-rate-9adae856**: WHEN a caller invokes getVatRate, the PurchaseOrder SHALL return the VAT rate.
+  - Acceptance criteria:
+    - AC1: WHEN getVatRate completes normally, the PurchaseOrder SHALL return vatRate.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-get-vat-87a7b1f2**: WHEN a caller invokes getVat, the PurchaseOrder SHALL return the VAT amount.
+  - Acceptance criteria:
+    - AC1: WHEN getVat completes normally, the PurchaseOrder SHALL return vat.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-get-working-directory-f1f9c3ab**: WHEN a caller invokes getWorkingDirectory, the DebugBean SHALL return the working directory.
+  - Acceptance criteria:
+    - AC1: WHEN getWorkingDirectory completes normally, the DebugBean SHALL return new java.io.File(".").getAbsolutePath().
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-get-zipcode-d5b9c135**: WHEN a caller invokes getZipcode, the Address SHALL return the zipcode.
+  - Acceptance criteria:
+    - AC1: WHEN getZipcode completes normally, the Address SHALL return zipcode.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-handle-as-part-workflow-f9fc9e34**: WHEN a caller invokes handle, the SimpleCallbackHandler SHALL process the supplied callbacks.
+  - Acceptance criteria:
+    - AC1: WHEN handle runs, the SimpleCallbackHandler SHALL call setName, getLogin, setPassword and getPassword.
+    - AC2: WHEN handle is invoked, the SimpleCallbackHandler SHALL accept callbacks of type Callback[].
+  - Verdict: satisfied (evidence: judge-preserved)
+  - Reasoning: Behaviour judge (confidence: high) ruled the change behaviour-preserving: The switch-pattern-matching rewrite (SwitchPatternMatching recipe) replaces the if/else-if/instanceof chain with an equivalent switch expression. Behaviour is identical: NameCallback sets name, PasswordCallback sets password, any other (including null) throws UnsupportedCallbackException. This matches the expected upgrade transformation.
+  - Judge confidence: high
+  - Caveat: Static behavioural judgement of the before/after implementation, not an executed test.
+- **FR-handles-authentication-f-0cb6dc65**: WHILE the caller supplies plainTextPassword, WHEN a caller invokes digestPassword, the Customer SHALL compute and return the digest of the plainTextPassword.
+  - Acceptance criteria:
+    - AC1: WHEN digestPassword runs, the Customer SHALL call update.
+    - AC2: WHEN digestPassword completes normally, the Customer SHALL return a value of type String.
+    - AC3: WHEN digestPassword is invoked, the Customer SHALL accept plainTextPassword of type String.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-handles-authentication-f-4894fcfc**: WHEN a caller invokes doLogin, the AccountBean SHALL return "main.faces".
+  - Acceptance criteria:
+    - AC1: WHEN doLogin runs, the AccountBean SHALL call getLogin, equals, addWarningMessage, getPassword and findCustomer.
+    - AC2: WHEN doLogin completes normally, the AccountBean SHALL return "main.faces".
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-handles-authentication-f-dabd1719**: WHEN a caller invokes doesLoginAlreadyExist, the CustomerService SHALL create the named query used to check for an existing login.
+  - Acceptance criteria:
+    - AC1: WHEN doesLoginAlreadyExist completes normally, the CustomerService SHALL return false.
+    - AC2: WHEN doesLoginAlreadyExist is invoked, the CustomerService SHALL accept login of type String.
+  - Verdict: satisfied (evidence: judge-preserved)
+  - Reasoning: Behaviour judge (confidence: high) ruled the change behaviour-preserving: Only the unused exception variable name 'e' was renamed to '_' (RenameUnderscoreIdentifier/ReplaceUnusedVariablesWithUnderscore recipe), a cosmetic change with no effect on behaviour. The named query creation and parameter setting logic is unchanged.
+  - Judge confidence: high
+  - Caveat: Static behavioural judgement of the before/after implementation, not an executed test.
+- **FR-handles-authentication-f-2e2f925e**: WHEN a caller invokes produceLoginContext, the LoginContextProducer SHALL create and return a LoginContext instance.
+  - Acceptance criteria:
+    - AC1: WHEN produceLoginContext runs, the LoginContextProducer SHALL apply the @Produces policy.
+    - AC2: WHEN produceLoginContext is invoked, the LoginContextProducer SHALL accept loginConfigFileName and loginModuleName as input.
+  - Verdict: satisfied (evidence: judge-preserved)
+  - Reasoning: Behaviour judge (confidence: high) ruled the change behaviour-preserving: The exception variable was renamed to '_' and System.out.println was replaced with IO.println, both expected OpenRewrite transformations (ReplaceUnusedVariablesWithUnderscore and ReplaceSystemOutWithIOPrint). The LoginContext creation and exception handling logic, including returning null on failure, remains functionally identical.
+  - Judge confidence: high
+  - Caveat: Static behavioural judgement of the before/after implementation, not an executed test.
+- **FR-handles-authentication-f-1d4bbafa**: WHILE the caller supplies password2, WHEN a caller invokes setPassword2, the CredentialsBean SHALL store the given password2 value.
+  - Acceptance criteria:
+    - AC1: WHEN setPassword2 is invoked, the CredentialsBean SHALL accept password2 of type String.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-handles-authorization-fo-40262db1**: WHEN a caller invokes setRole, the Customer SHALL store the given role.
+  - Acceptance criteria:
+    - AC1: WHEN setRole is invoked, the Customer SHALL accept role of type UserRole.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-handles-calculation-for-7c64f0d2**: WHEN a caller creates an Address, the Address SHALL initialize the Address with the given street1, city, zipcode and country.
+  - Acceptance criteria:
+    - AC1: WHEN Address is constructed, the Address SHALL accept street1 of type String, city of type String, zipcode of type String and country of type Country.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-handles-calculation-for-4b7441b2**: WHEN a caller invokes doCreateNewAccount, the AccountBean SHALL return "createaccount.faces".
+  - Acceptance criteria:
+    - AC1: WHEN doCreateNewAccount runs, the AccountBean SHALL call doesLoginAlreadyExist, getLogin, addWarningMessage, equals and getPassword (+3 more).
+    - AC2: WHEN doCreateNewAccount completes normally, the AccountBean SHALL return "createaccount.faces".
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-handles-calculation-for-6a56b7f7**: WHEN a caller invokes doUpdateAccount, the AccountBean SHALL update the logged-in customer's account details.
+  - Acceptance criteria:
+    - AC1: WHEN doUpdateAccount runs, the AccountBean SHALL call updateCustomer and addInformationMessage.
+    - AC2: WHEN doUpdateAccount completes normally, the AccountBean SHALL return "showaccount.faces".
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-handles-calculation-for-680db47f**: WHEN a caller invokes setDiscount, the PurchaseOrder SHALL store the given discount value.
+  - Acceptance criteria:
+    - AC1: WHEN setDiscount is invoked, the PurchaseOrder SHALL accept discount of type Float.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-handles-calculation-for-0e88d4fa**: WHEN a caller invokes setDiscountRate, the PurchaseOrder SHALL store the given discount rate.
+  - Acceptance criteria:
+    - AC1: WHEN setDiscountRate is invoked, the PurchaseOrder SHALL accept discountRate of type Float.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-handles-calculation-for-5ebb6c73**: WHEN a caller invokes setExample, the CountryBean SHALL store the given example value.
+  - Acceptance criteria:
+    - AC1: WHEN setExample is invoked, the CountryBean SHALL accept example of type Country.
+  - Verdict: satisfied (evidence: judge-preserved)
+  - Reasoning: Behaviour judge (confidence: high) ruled the change behaviour-preserving: The setExample method is identical in BEFORE and AFTER, only line numbers shifted. Behaviour of storing the example value is unchanged.
+  - Judge confidence: high
+  - Caveat: Static behavioural judgement of the before/after implementation, not an executed test.
+- **FR-handles-calculation-for-ffae88f7**: WHEN a caller invokes setTotal, the PurchaseOrder SHALL store the given total value.
+  - Acceptance criteria:
+    - AC1: WHEN setTotal is invoked, the PurchaseOrder SHALL accept total of type Float.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-handles-calculation-for-84ffa9b0**: WHEN a caller invokes setTotalWithVat, the PurchaseOrder SHALL store the given total-with-VAT value.
+  - Acceptance criteria:
+    - AC1: WHEN setTotalWithVat is invoked, the PurchaseOrder SHALL accept totalWithVat of type Float.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-handles-calculation-for-5d3c2f38**: WHEN a caller invokes setTotalWithoutVat, the PurchaseOrder SHALL store the given total-without-VAT value.
+  - Acceptance criteria:
+    - AC1: WHEN setTotalWithoutVat is invoked, the PurchaseOrder SHALL accept totalWithoutVat of type Float.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-handles-communication-fo-bcf71559**: WHEN a caller invokes setEmail, the Customer SHALL store the given email address.
+  - Acceptance criteria:
+    - AC1: WHEN setEmail is invoked, the Customer SHALL accept email of type String.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-handles-communication-fo-df023fa5**: WHEN a caller creates a ValidationException, the ValidationException SHALL initialize the ValidationException with the given message.
+  - Acceptance criteria:
+    - AC1: WHEN ValidationException is constructed, the ValidationException SHALL accept message of type String.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-handles-configuration-fo-b48cbba9**: WHEN a caller invokes produceConfigProperty, the ConfigPropertyProducer SHALL return the requested property.
+  - Acceptance criteria:
+    - AC1: WHEN produceConfigProperty completes normally, the ConfigPropertyProducer SHALL return props.getProperty(key).
+    - AC2: WHEN produceConfigProperty runs, the ConfigPropertyProducer SHALL apply the @Produces policy.
+    - AC3: WHEN produceConfigProperty runs, the ConfigPropertyProducer SHALL apply the @ConfigProperty policy.
+    - AC4: WHEN produceConfigProperty is invoked, the ConfigPropertyProducer SHALL accept ip of type InjectionPoint.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-handles-logging-for-do-l-bc9623cc**: WHEN a caller invokes doLogout, the AccountBean SHALL return "main.faces".
+  - Acceptance criteria:
+    - AC1: WHEN doLogout runs, the AccountBean SHALL call addInformationMessage.
+    - AC2: WHEN doLogout completes normally, the AccountBean SHALL return "main.faces".
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-handles-logging-for-is-l-980256f6**: WHEN a caller invokes isLoggedIn, the AccountBean SHALL report whether it is logged in.
+  - Acceptance criteria:
+    - AC1: WHEN isLoggedIn completes normally, the AccountBean SHALL return loggedinCustomer != null.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-handles-logging-for-logo-d454b60d**: WHEN a caller invokes logout, the SimpleLoginModule SHALL clear the authenticated session state and log the user out.
+  - Acceptance criteria:
+    - AC1: WHEN logout completes normally, the SimpleLoginModule SHALL return true.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-handles-logging-for-prod-919ea72b**: WHEN a caller invokes produceLogger, the LoggingProducer SHALL return the logger.
+  - Acceptance criteria:
+    - AC1: WHEN produceLogger runs, the LoggingProducer SHALL call getName.
+    - AC2: WHEN produceLogger completes normally, the LoggingProducer SHALL return Logger.getLogger(injectionPoint.getMember().getDeclaringClass().getName()).
+    - AC3: WHEN produceLogger runs, the LoggingProducer SHALL apply the @Produces policy.
+    - AC4: WHEN produceLogger is invoked, the LoggingProducer SHALL accept injectionPoint of type InjectionPoint.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-handles-logging-for-set-30761659**: WHEN a caller invokes setLoggedinCustomer, the AccountBean SHALL store the given customer as the logged-in customer.
+  - Acceptance criteria:
+    - AC1: WHEN setLoggedinCustomer is invoked, the AccountBean SHALL accept loggedinCustomer of type Customer.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-handles-persistence-for-f00b9d9c**: WHEN a caller invokes setDefaultData, the PurchaseOrder SHALL set the order's fields to their default values.
+  - Acceptance criteria:
+    - AC1: WHEN setDefaultData runs, the PurchaseOrder SHALL apply the @PrePersist policy.
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-handles-retrieval-for-do-253f05bd**: WHEN a caller invokes doFindItem, the CatalogBean SHALL return "showitem.faces".
+  - Acceptance criteria:
+    - AC1: WHEN doFindItem runs, the CatalogBean SHALL call findItem.
+    - AC2: WHEN doFindItem completes normally, the CatalogBean SHALL return "showitem.faces".
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-handles-retrieval-for-do-050dce76**: WHEN a caller invokes doFindItems, the CatalogBean SHALL return "showitems.faces".
+  - Acceptance criteria:
+    - AC1: WHEN doFindItems runs, the CatalogBean SHALL call findProduct and findItems.
+    - AC2: WHEN doFindItems completes normally, the CatalogBean SHALL return "showitems.faces".
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-handles-retrieval-for-do-43ea4951**: WHEN a caller invokes doFindProducts, the CatalogBean SHALL return "showproducts.faces".
+  - Acceptance criteria:
+    - AC1: WHEN doFindProducts runs, the CatalogBean SHALL call findProducts.
+    - AC2: WHEN doFindProducts completes normally, the CatalogBean SHALL return "showproducts.faces".
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-handles-retrieval-for-do-e5c7f0f1**: WHEN a caller invokes doSearch, the CatalogBean SHALL return "searchresult.faces&faces-redirect=true".
+  - Acceptance criteria:
+    - AC1: WHEN doSearch runs, the CatalogBean SHALL call searchItems.
+    - AC2: WHEN doSearch completes normally, the CatalogBean SHALL return "searchresult.faces&faces-redirect=true".
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **FR-handles-validation-for-c-b2df3759**: WHEN a caller invokes checkout, the ShoppingCartBean SHALL return "confirmorder.faces".
+  - Acceptance criteria:
+    - AC1: WHEN checkout completes normally, the ShoppingCartBean SHALL return "confirmorder.faces".
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **NFR-COMPATIBILITY-ae6b810f**: WHEN getVersion, setVersion, an operation of List or another supporting component interacts with a versioned runtime, SDK or protocol, the system SHALL remain compatible with its declared runtime and protocol versions.
+  - Acceptance criteria:
+    - AC1: WHEN an operation of Email.List interacts with a versioned runtime, SDK or protocol, the system SHALL honour the declared runtime and protocol versions (evidence: @Retention(RetentionPolicy.RUNTIME) in Email.List, Email.java:47).
+    - AC2: WHEN an operation of Login interacts with a versioned runtime, SDK or protocol, the system SHALL honour the declared runtime and protocol versions (evidence: @Retention(RetentionPolicy.RUNTIME) in Login, Login.java:20).
+    - AC3: WHEN an operation of Login.List interacts with a versioned runtime, SDK or protocol, the system SHALL honour the declared runtime and protocol versions (evidence: @Retention(RetentionPolicy.RUNTIME) in Login.List, Login.java:45).
+    - AC4: WHEN an operation of NotEmpty interacts with a versioned runtime, SDK or protocol, the system SHALL honour the declared runtime and protocol versions (evidence: @Retention(RetentionPolicy.RUNTIME) in NotEmpty, NotEmpty.java:20).
+    - AC5: WHEN an operation of NotEmpty.List interacts with a versioned runtime, SDK or protocol, the system SHALL honour the declared runtime and protocol versions (evidence: @Retention(RetentionPolicy.RUNTIME) in NotEmpty.List, NotEmpty.java:45).
+    - AC6: WHEN an operation of Price, an operation of Price.List, an operation of ValidationException, an operation configured by Category.version or Category.getVersion (+32 more) interacts with a versioned runtime, SDK or protocol, the system SHALL honour the declared runtime and protocol versions (evidence: @Retention(RetentionPolicy.RUNTIME) in Price, Price.java:19; @Retention(RetentionPolicy.RUNTIME) in Price.List, Price.java:43; RuntimeException in ValidationException, ValidationException.java:10; @Version in Category.version, Category.java:35; getVersion in Category.getVersion, Category.java:84 (+32 more)).
+  - Verdict: satisfied (evidence: judge-preserved)
+  - Reasoning: Behaviour judge (confidence: high) ruled the change behaviour-preserving: All annotation definitions, retention/target policies, version fields, getters/setters are unchanged between BEFORE and AFTER. No semantic differences detected; code is identical aside from no line shifts shown.
+  - Judge confidence: high
+  - Caveat: Static behavioural judgement of the before/after implementation, not an executed test.
+- **NFR-DATA-16f4779c**: WHEN calculateAge, setDefaultData, commit or another supporting component persists or changes data, the system SHALL preserve data integrity across persistence and transaction boundaries.
+  - Acceptance criteria:
+    - AC1: WHEN an operation configured by Address.country persists or changes data, the system SHALL preserve transactional data integrity (evidence: @ManyToOne(cascade = CascadeType.PERSIST) in Address.country, Address.java:45).
+    - AC2: WHEN Customer.calculateAge persists or changes data, the system SHALL preserve transactional data integrity (evidence: @PostPersist in Customer.calculateAge, Customer.java:125).
+    - AC3: WHEN an operation configured by Item.product persists or changes data, the system SHALL preserve transactional data integrity (evidence: @ManyToOne(cascade = CascadeType.PERSIST) in Item.product, Item.java:60).
+    - AC4: WHEN an operation configured by OrderLine.item persists or changes data, the system SHALL preserve transactional data integrity (evidence: @ManyToOne(cascade = CascadeType.PERSIST) in OrderLine.item, OrderLine.java:29).
+    - AC5: WHEN an operation configured by Product.category persists or changes data, the system SHALL preserve transactional data integrity (evidence: @ManyToOne(cascade = CascadeType.PERSIST) in Product.category, Product.java:47).
+    - AC6: WHEN PurchaseOrder.setDefaultData, an operation configured by CategoryEndpoint.em, an operation configured by CountryEndpoint.em, an operation configured by CustomerEndpoint.em or an operation configured by ItemEndpoint.em (+12 more) persists or changes data, the system SHALL preserve transactional data integrity (evidence: @PrePersist in PurchaseOrder.setDefaultData, PurchaseOrder.java:100; @PersistenceContext(unitName = "applicationPetstorePU") in CategoryEndpoint.em, CategoryEndpoint.java:33; @PersistenceContext(unitName = "applicationPetstorePU") in CountryEndpoint.em, CountryEndpoint.java:33; @PersistenceContext(unitName = "applicationPetstorePU") in CustomerEndpoint.em, CustomerEndpoint.java:33; @PersistenceContext(unitName = "applicationPetstorePU") in ItemEndpoint.em, ItemEndpoint.java:33 (+12 more)).
+  - Verdict: satisfied (evidence: judge-preserved)
+  - Reasoning: Behaviour judge (confidence: high) ruled the change behaviour-preserving: All persistence-related code (cascade settings, lifecycle callbacks, EntityManager injections, persist method) is identical between BEFORE and AFTER, with only minor line-number shifts in bean files. Data integrity behaviour is preserved.
+  - Judge confidence: high
+  - Caveat: Static behavioural judgement of the before/after implementation, not an executed test.
+- **NFR-OBSERVABILITY-9f46ce8c**: WHEN intercept, produceLogger, catchException or another supporting component handles a request or an error, the system SHALL emit logs, metrics, or traces for its operations.
+  - Acceptance criteria:
+    - AC1: WHEN an operation of LoggingInterceptor handles a request or an error, the system SHALL emit logs, metrics or traces (evidence: LoggingInterceptor in LoggingInterceptor, LoggingInterceptor.java:20).
+    - AC2: WHEN LoggingInterceptor.intercept is invoked, the system SHALL record an information-level log entry (evidence: logger.info in LoggingInterceptor.intercept, LoggingInterceptor.java:38).
+    - AC3: WHEN LoggingInterceptor.intercept is invoked, the system SHALL record an information-level log entry (evidence: logger.info in LoggingInterceptor.intercept, LoggingInterceptor.java:46).
+    - AC4: WHEN an operation of LoggingProducer handles a request or an error, the system SHALL emit logs, metrics or traces (evidence: LoggingProducer in LoggingProducer, LoggingProducer.java:13).
+    - AC5: WHEN LoggingProducer.produceLogger handles a request or an error, the system SHALL emit logs, metrics or traces (evidence: produceLogger in LoggingProducer.produceLogger, LoggingProducer.java:20).
+    - AC6: WHEN ExceptionInterceptor.catchException handles Exception, the system SHALL record a critical-level log entry (evidence: log.severe in ExceptionInterceptor.catchException, ExceptionInterceptor.java:32).
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **NFR-PERFORMANCE-92c573e7**: WHEN an operation of Category, an operation of Country, an operation of Item or another supporting component serves repeated or bulk work, the system SHALL use caching or batching to bound response latency.
+  - Acceptance criteria:
+    - AC1: WHEN an operation of Category serves repeated or bulk work, the system SHALL use caching or batching (evidence: @Cacheable in Category, Category.java:14).
+    - AC2: WHEN an operation of Country serves repeated or bulk work, the system SHALL use caching or batching (evidence: @Cacheable in Country, Country.java:10).
+    - AC3: WHEN an operation of Item serves repeated or bulk work, the system SHALL use caching or batching (evidence: @Cacheable in Item, Item.java:18).
+    - AC4: WHEN an operation of Product serves repeated or bulk work, the system SHALL use caching or batching (evidence: @Cacheable in Product, Product.java:11).
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **NFR-RELIABILITY-49e8cb2f**: WHEN an exception is raised in digestPassword, findById, update or another supporting component, the system SHALL catch and handle exceptions raised during its operations.
+  - Acceptance criteria:
+    - AC1: IF Exception is thrown in Customer.digestPassword, THEN the system SHALL catch it and throw RuntimeException (evidence: catch (Exception e) in Customer.digestPassword, Customer.java:173).
+    - AC2: IF NoResultException is thrown in CategoryEndpoint.findById, THEN the system SHALL catch it and stop it from propagating out of findById (evidence: catch (NoResultException nre) in CategoryEndpoint.findById, CategoryEndpoint.java:76).
+    - AC3: IF OptimisticLockException is thrown in CategoryEndpoint.update, THEN the system SHALL catch it and return Response.status(Response.Status.CONFLICT).entity(e.getEntity()).build() (evidence: catch (OptimisticLockException e) in CategoryEndpoint.update, CategoryEndpoint.java:115).
+    - AC4: IF NoResultException is thrown in CountryEndpoint.findById, THEN the system SHALL catch it and stop it from propagating out of findById (evidence: catch (NoResultException nre) in CountryEndpoint.findById, CountryEndpoint.java:76).
+    - AC5: IF OptimisticLockException is thrown in CountryEndpoint.update, THEN the system SHALL catch it and return Response.status(Response.Status.CONFLICT).entity(e.getEntity()).build() (evidence: catch (OptimisticLockException e) in CountryEndpoint.update, CountryEndpoint.java:115).
+    - AC6: WHEN an exception is raised in CustomerEndpoint.findById, CustomerEndpoint.update, ItemEndpoint.findById, ItemEndpoint.update or ProductEndpoint.findById (+21 more), the system SHALL catch and handle the exception (evidence: catch (NoResultException nre) in CustomerEndpoint.findById, CustomerEndpoint.java:76; catch (OptimisticLockException e) in CustomerEndpoint.update, CustomerEndpoint.java:115; catch (NoResultException nre) in ItemEndpoint.findById, ItemEndpoint.java:76; catch (OptimisticLockException e) in ItemEndpoint.update, ItemEndpoint.java:115; catch (NoResultException nre) in ProductEndpoint.findById, ProductEndpoint.java:76 (+22 more)).
+  - Verdict: satisfied (evidence: judge-preserved)
+  - Reasoning: Behaviour judge (confidence: high) ruled the change behaviour-preserving: The exception handling logic is identical before and after: try/catch blocks, caught exception types, and control flow (returning null, HTTP status codes, rethrowing as RuntimeException) are unchanged. The only differences are cosmetic: unused catch-parameter renamed to '_' (Java unnamed variable pattern) and System.out.println replaced with IO.println, both standard modernization transformations with no behavioral impact on exception handling.
+  - Judge confidence: high
+  - Caveat: Static behavioural judgement of the before/after implementation, not an executed test.
+- **NFR-SECURITY-4d0f2503**: WHEN a caller invokes Customer, getLogin, setLogin or another supporting component, the system SHALL authenticate and authorize access to protected operations.
+  - Acceptance criteria:
+    - AC1: WHEN a caller invokes an operation of Login, the system SHALL enforce authentication and authorization (evidence: Login in Login, Login.java:28).
+    - AC2: WHEN a caller invokes an operation configured by Customer.login, the system SHALL enforce authentication and authorization (evidence: @Login in Customer.login, Customer.java:61).
+    - AC3: WHEN a caller invokes an operation configured by Customer.FIND_BY_LOGIN, the system SHALL enforce authentication and authorization (evidence: FIND_BY_LOGIN in Customer.FIND_BY_LOGIN, Customer.java:92).
+    - AC4: WHEN a caller invokes an operation configured by Customer.FIND_BY_LOGIN_PASSWORD, the system SHALL enforce authentication and authorization (evidence: FIND_BY_LOGIN_PASSWORD in Customer.FIND_BY_LOGIN_PASSWORD, Customer.java:93).
+    - AC5: WHEN a caller invokes Customer.Customer, the system SHALL enforce authentication and authorization (evidence: login in Customer.Customer, Customer.java:106).
+    - AC6: WHEN a caller invokes Customer.getLogin, Customer.setLogin, an operation of LoginContextProducer, LoginContextProducer.produceLoginContext or an operation of SimpleLoginModule (+8 more), the system SHALL enforce authentication and authorization (evidence: getLogin in Customer.getLogin, Customer.java:203; setLogin in Customer.setLogin, Customer.java:208; LoginContextProducer in LoginContextProducer, LoginContextProducer.java:18; produceLoginContext in LoginContextProducer.produceLoginContext, LoginContextProducer.java:33; SimpleLoginModule in SimpleLoginModule, SimpleLoginModule.java:27 (+8 more)).
+  - Verdict: satisfied (evidence: judge-preserved)
+  - Reasoning: Behaviour judge (confidence: high) ruled the change behaviour-preserving: The authentication/authorization logic (Login constraint, Customer login field, getLogin/setLogin, LoginContextProducer, SimpleLoginModule.login(), CustomerService.doesLoginAlreadyExist) is unchanged in substance. The only differences are cosmetic: unused catch-parameter renamed to '_' and System.out.println replaced with IO.println, which do not affect authentication/authorization behavior.
+  - Judge confidence: high
+  - Caveat: Static behavioural judgement of the before/after implementation, not an executed test.
+- **NFR-SECURITY-742b03ce**: WHEN sensitive data is handled by hashCode, the system SHALL protect data in transit and at rest using cryptographic controls.
+  - Acceptance criteria:
+    - AC1: WHEN sensitive data is handled by Address.hashCode, the system SHALL apply cryptographic protection (evidence: hashCode in Address.hashCode, Address.java:141).
+    - AC2: WHEN sensitive data is handled by Category.hashCode, the system SHALL apply cryptographic protection (evidence: hashCode in Category.hashCode, Category.java:127).
+    - AC3: WHEN sensitive data is handled by Country.hashCode, the system SHALL apply cryptographic protection (evidence: hashCode in Country.hashCode, Country.java:157).
+    - AC4: WHEN sensitive data is handled by CreditCard.hashCode, the system SHALL apply cryptographic protection (evidence: hashCode in CreditCard.hashCode, CreditCard.java:106).
+    - AC5: WHEN sensitive data is handled by Customer.hashCode, the system SHALL apply cryptographic protection (evidence: hashCode in Customer.hashCode, Customer.java:326).
+    - AC6: WHEN sensitive data is handled by Item.hashCode, OrderLine.hashCode, Product.hashCode, PurchaseOrder.hashCode or ShoppingCartItem.hashCode, the system SHALL apply cryptographic protection (evidence: hashCode in Item.hashCode, Item.java:177; hashCode in OrderLine.hashCode, OrderLine.java:113; hashCode in Product.hashCode, Product.java:141; hashCode in PurchaseOrder.hashCode, PurchaseOrder.java:264; hashCode in ShoppingCartItem.hashCode, ShoppingCartItem.java:89).
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
+- **NFR-SECURITY-77058ab1**: WHEN untrusted input reaches ValidationException or an operation of ValidationException, the system SHALL validate and sanitize untrusted input before use.
+  - Acceptance criteria:
+    - AC1: WHEN untrusted input reaches an operation of ValidationException, the system SHALL validate or sanitize the input before use (evidence: ValidationException in ValidationException, ValidationException.java:10).
+    - AC2: WHEN untrusted input reaches ValidationException.ValidationException, the system SHALL validate or sanitize the input before use (evidence: ValidationException in ValidationException.ValidationException, ValidationException.java:21).
+  - Verdict: satisfied (evidence: unchanged)
+  - Reasoning: The implementing code did not change between the pre- and post-upgrade codebase, so the behaviour is preserved by construction.
+  - Caveat: Not executed at runtime; rests on the implementing location being unchanged, not on a passing test.
