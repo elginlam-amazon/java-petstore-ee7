@@ -40,7 +40,7 @@ public final class ViewUtils
          object.getClass().getDeclaredMethod("toString");
          return object.toString();
       }
-      catch (NoSuchMethodException noMethodEx)
+      catch (NoSuchMethodException _)
       {
          try
          {
