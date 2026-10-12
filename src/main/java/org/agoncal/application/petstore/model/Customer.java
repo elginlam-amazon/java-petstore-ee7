@@ -1,6 +1,7 @@
 package org.agoncal.application.petstore.model;
 
 import org.agoncal.application.petstore.constraints.Email;
+import javax.annotation.Nullable;
 import org.agoncal.application.petstore.constraints.Login;
 
 import javax.persistence.*;
@@ -199,6 +200,8 @@ public class Customer implements Serializable
    {
       this.version = version;
    }
+
+   @Nullable
 
    public String getLogin()
    {

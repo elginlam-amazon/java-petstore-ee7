@@ -1,6 +1,7 @@
 package org.agoncal.application.petstore.service;
 
 import org.agoncal.application.petstore.model.Country;
+import javax.annotation.Nonnull;
 import org.agoncal.application.petstore.model.Customer;
 import org.agoncal.application.petstore.util.Loggable;
 
@@ -46,7 +47,7 @@ public class CustomerService extends AbstractService<Customer> implements Serial
    // =              Public Methods        =
    // ======================================
 
-   public boolean doesLoginAlreadyExist(@NotNull String login)
+   public boolean doesLoginAlreadyExist(@Nonnull @NotNull String login)
    {
 
       // Login has to be unique
@@ -63,7 +64,7 @@ public class CustomerService extends AbstractService<Customer> implements Serial
       }
    }
 
-   public Customer createCustomer(@NotNull Customer customer)
+   public Customer createCustomer(@Nonnull @NotNull Customer customer)
    {
       Country country = entityManager.find(Country.class, customer.getHomeAddress().getCountry().getId());
       customer.getHomeAddress().setCountry(country);

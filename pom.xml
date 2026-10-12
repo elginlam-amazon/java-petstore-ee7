@@ -120,6 +120,12 @@
   </dependencyManagement>
 
   <dependencies>
+    <!-- T8 seed (test plan 1.3): jsr305 Nonnull/Nullable must stay javax.* -->
+    <dependency>
+      <groupId>com.google.code.findbugs</groupId>
+      <artifactId>jsr305</artifactId>
+      <version>3.0.2</version>
+    </dependency>
     <dependency>
       <groupId>io.swagger</groupId>
       <artifactId>swagger-annotations</artifactId>

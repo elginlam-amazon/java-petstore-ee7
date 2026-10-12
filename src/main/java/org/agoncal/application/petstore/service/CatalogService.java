@@ -1,6 +1,7 @@
 package org.agoncal.application.petstore.service;
 
 import org.agoncal.application.petstore.model.Category;
+import javax.annotation.Nonnull;
 import org.agoncal.application.petstore.model.Item;
 import org.agoncal.application.petstore.model.Product;
 import org.agoncal.application.petstore.util.Loggable;
@@ -34,11 +35,11 @@ public class CatalogService implements Serializable {
     // =              Public Methods        =
     // ======================================
 
-    public Category findCategory(@NotNull Long categoryId) {
+    public Category findCategory(@Nonnull @NotNull Long categoryId) {
         return em.find(Category.class, categoryId);
     }
 
-    public Category findCategory(@NotNull String categoryName) {
+    public Category findCategory(@Nonnull @NotNull String categoryName) {
         TypedQuery<Category> typedQuery = em.createNamedQuery(Category.FIND_BY_NAME, Category.class);
         typedQuery.setParameter("pname", categoryName);
         return typedQuery.getSingleResult();

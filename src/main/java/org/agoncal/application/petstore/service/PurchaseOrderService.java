@@ -1,6 +1,7 @@
 package org.agoncal.application.petstore.service;
 
 import org.agoncal.application.petstore.exceptions.ValidationException;
+import javax.annotation.Nonnull;
 import org.agoncal.application.petstore.model.*;
 import org.agoncal.application.petstore.util.Loggable;
 import org.agoncal.application.petstore.view.shopping.ShoppingCartItem;
@@ -39,7 +40,7 @@ public class PurchaseOrderService extends AbstractService<PurchaseOrder>implemen
    // =              Public Methods        =
    // ======================================
 
-   public PurchaseOrder createOrder(@NotNull Customer customer, @NotNull CreditCard creditCard, final List<ShoppingCartItem> cartItems)
+   public PurchaseOrder createOrder(@Nonnull @NotNull Customer customer, @NotNull CreditCard creditCard, final List<ShoppingCartItem> cartItems)
    {
 
       // OMake sure the object is valid
@@ -67,7 +68,7 @@ public class PurchaseOrderService extends AbstractService<PurchaseOrder>implemen
       return order;
    }
 
-   public PurchaseOrder findOrder(@NotNull Long orderId)
+   public PurchaseOrder findOrder(@Nonnull @NotNull Long orderId)
    {
       return entityManager.find(PurchaseOrder.class, orderId);
    }
