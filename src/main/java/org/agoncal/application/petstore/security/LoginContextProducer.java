@@ -2,8 +2,8 @@ package org.agoncal.application.petstore.security;
 
 import org.agoncal.application.petstore.util.ConfigProperty;
 
-import javax.enterprise.inject.Produces;
-import javax.inject.Inject;
+import jakarta.enterprise.inject.Produces;
+import jakarta.inject.Inject;
 import javax.security.auth.login.LoginContext;
 import javax.security.auth.login.LoginException;
 import java.io.File;
@@ -40,9 +40,9 @@ public class LoginContextProducer
       {
          return new LoginContext(loginModuleName, callbackHandler);
       }
-      catch (Exception e)
+      catch (Exception _)
       {
-         System.out.println("ouch!!!");
+         IO.println("ouch!!!");
          return null;
       }
    }

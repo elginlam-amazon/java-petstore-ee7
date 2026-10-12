@@ -1,7 +1,11 @@
 package org.agoncal.application.petstore.rest;
 
-import javax.ws.rs.ApplicationPath;
-import javax.ws.rs.core.Application;
+import io.swagger.v3.oas.annotations.OpenAPIDefinition;
+import io.swagger.v3.oas.annotations.info.Contact;
+import io.swagger.v3.oas.annotations.info.Info;
+import io.swagger.v3.oas.annotations.servers.Server;
+import jakarta.ws.rs.ApplicationPath;
+import jakarta.ws.rs.core.Application;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -12,6 +16,10 @@ import java.util.Set;
  */
 
 @ApplicationPath("/rest")
+@OpenAPIDefinition(
+   info = @Info(title = "Petstore APIs", version = "1.0.0", description = "PetStore APIs exposed",
+      contact = @Contact(name = "Antonio Goncalves", url = "https://antoniogoncalves.org/", email = "antonio.goncalves@gmail.com")),
+   servers = {@Server(url = "http://localhost:8080/applicationPetstore/rest"), @Server(url = "https://localhost:8080/applicationPetstore/rest")})
 public class RestApplication extends Application
 {
    // ======================================

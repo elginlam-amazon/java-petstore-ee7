@@ -5,11 +5,11 @@ import org.agoncal.application.petstore.model.Item;
 import org.agoncal.application.petstore.model.Product;
 import org.agoncal.application.petstore.util.Loggable;
 
-import javax.ejb.Stateless;
-import javax.inject.Inject;
-import javax.persistence.EntityManager;
-import javax.persistence.TypedQuery;
-import javax.validation.constraints.NotNull;
+import jakarta.ejb.Stateless;
+import jakarta.inject.Inject;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.TypedQuery;
+import jakarta.validation.constraints.NotNull;
 import java.io.Serializable;
 import java.util.List;
 

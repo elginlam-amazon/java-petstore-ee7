@@ -8,8 +8,8 @@ import org.jboss.shrinkwrap.api.spec.JavaArchive;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import javax.inject.Inject;
-import javax.validation.Validator;
+import jakarta.inject.Inject;
+import jakarta.validation.Validator;
 
 import static org.junit.Assert.assertEquals;
 

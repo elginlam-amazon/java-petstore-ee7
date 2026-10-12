@@ -1,6 +1,6 @@
 package org.agoncal.application.petstore.util;
 
-import javax.interceptor.InterceptorBinding;
+import jakarta.interceptor.InterceptorBinding;
 import java.lang.annotation.*;
 
 import static java.lang.annotation.ElementType.METHOD;

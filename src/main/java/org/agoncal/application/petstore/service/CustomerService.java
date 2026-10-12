@@ -4,14 +4,14 @@ import org.agoncal.application.petstore.model.Country;
 import org.agoncal.application.petstore.model.Customer;
 import org.agoncal.application.petstore.util.Loggable;
 
-import javax.ejb.LocalBean;
-import javax.ejb.Stateless;
-import javax.persistence.NoResultException;
-import javax.persistence.TypedQuery;
-import javax.persistence.criteria.CriteriaBuilder;
-import javax.persistence.criteria.Predicate;
-import javax.persistence.criteria.Root;
-import javax.validation.constraints.NotNull;
+import jakarta.ejb.LocalBean;
+import jakarta.ejb.Stateless;
+import jakarta.persistence.NoResultException;
+import jakarta.persistence.TypedQuery;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Root;
+import jakarta.validation.constraints.NotNull;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
@@ -57,7 +57,7 @@ public class CustomerService extends AbstractService<Customer> implements Serial
          typedQuery.getSingleResult();
          return true;
       }
-      catch (NoResultException e)
+      catch (NoResultException _)
       {
          return false;
       }
@@ -80,7 +80,7 @@ public class CustomerService extends AbstractService<Customer> implements Serial
       {
          return typedQuery.getSingleResult();
       }
-      catch (NoResultException e)
+      catch (NoResultException _)
       {
          return null;
       }
