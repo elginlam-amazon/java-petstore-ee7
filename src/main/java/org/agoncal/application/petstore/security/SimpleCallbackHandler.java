@@ -2,9 +2,9 @@ package org.agoncal.application.petstore.security;
 
 import org.agoncal.application.petstore.view.shopping.CredentialsBean;
 
-import javax.enterprise.context.RequestScoped;
-import javax.inject.Inject;
-import javax.inject.Named;
+import jakarta.enterprise.context.RequestScoped;
+import jakarta.inject.Inject;
+import jakarta.inject.Named;
 import javax.security.auth.callback.Callback;
 import javax.security.auth.callback.CallbackHandler;
 import javax.security.auth.callback.NameCallback;
@@ -39,19 +39,11 @@ public class SimpleCallbackHandler implements CallbackHandler
    {
       for (Callback callback : callbacks)
       {
-         if (callback instanceof NameCallback)
+         switch (callback)
          {
-            NameCallback nameCallback = (NameCallback) callback;
-            nameCallback.setName(credentials.getLogin());
-         }
-         else if (callback instanceof PasswordCallback)
-         {
-            PasswordCallback passwordCallback = (PasswordCallback) callback;
-            passwordCallback.setPassword(credentials.getPassword().toCharArray());
-         }
-         else
-         {
-            throw new UnsupportedCallbackException(callback);
+            case NameCallback nameCallback -> nameCallback.setName(credentials.getLogin());
+            case PasswordCallback passwordCallback -> passwordCallback.setPassword(credentials.getPassword().toCharArray());
+            case null, default -> throw new UnsupportedCallbackException(callback);
          }
       }
    }
