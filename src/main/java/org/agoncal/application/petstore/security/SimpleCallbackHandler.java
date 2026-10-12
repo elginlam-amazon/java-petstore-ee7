@@ -39,19 +39,14 @@ public class SimpleCallbackHandler implements CallbackHandler
    {
       for (Callback callback : callbacks)
       {
-         if (callback instanceof NameCallback)
-         {
-            NameCallback nameCallback = (NameCallback) callback;
-            nameCallback.setName(credentials.getLogin());
-         }
-         else if (callback instanceof PasswordCallback)
-         {
-            PasswordCallback passwordCallback = (PasswordCallback) callback;
-            passwordCallback.setPassword(credentials.getPassword().toCharArray());
-         }
-         else
-         {
-            throw new UnsupportedCallbackException(callback);
+         switch (callback) {
+            case NameCallback nameCallback:
+                nameCallback -> __P__./*__p3__*/voidp();
+            case PasswordCallback passwordCallback:
+                passwordCallback -> __P__./*__p6__*/voidp();
+            case null:
+               , default
+                -> __P__.<java.lang.Object>/*__p7__*/p()/*__TEMPLATE_STOP__*/
          }
       }
    }

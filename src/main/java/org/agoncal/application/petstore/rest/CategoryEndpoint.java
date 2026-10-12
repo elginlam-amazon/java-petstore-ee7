@@ -73,7 +73,7 @@ public class CategoryEndpoint
       {
          entity = findByIdQuery.getSingleResult();
       }
-      catch (NoResultException nre)
+      catch (NoResultException _)
       {
          entity = null;
       }
