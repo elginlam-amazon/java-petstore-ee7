@@ -88,7 +88,7 @@ public class PurchaseOrderBeanIT
 
       // Finds the object from the database and checks it's the right one
       purchaseOrder = purchaseorderbean.findById(purchaseOrder.getId());
-      assertEquals(new Float(12.5F), purchaseOrder.getDiscountRate());
+      assertEquals(Float.valueOf(12.5F), purchaseOrder.getDiscountRate());
 
       // Deletes the object from the database and checks it's not there anymore
       purchaseorderbean.setId(purchaseOrder.getId());
