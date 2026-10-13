@@ -1,8 +1,8 @@
 <#-- T7 seed (test plan 1.3): EE javax.* in a template; must be migrated to jakarta.* -->
 package ${package};
 
-import javax.persistence.Entity;
-import javax.persistence.Id;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
 
 @Entity
 public class ${className} {
