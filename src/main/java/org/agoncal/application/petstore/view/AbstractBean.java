@@ -2,9 +2,9 @@ package org.agoncal.application.petstore.view;
 
 import org.agoncal.application.petstore.util.Loggable;
 
-import javax.faces.application.FacesMessage;
-import javax.faces.context.FacesContext;
-import javax.inject.Inject;
+import jakarta.faces.application.FacesMessage;
+import jakarta.faces.context.FacesContext;
+import jakarta.inject.Inject;
 import java.text.MessageFormat;
 import java.util.Locale;
 import java.util.Map;
