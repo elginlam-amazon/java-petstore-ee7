@@ -5,12 +5,16 @@ import io.swagger.annotations.ApiOperation;
 import org.agoncal.application.petstore.model.Customer;
 import org.agoncal.application.petstore.util.Loggable;
 
-import javax.ejb.Stateless;
-import javax.persistence.*;
-import javax.ws.rs.*;
-import javax.ws.rs.core.Response;
-import javax.ws.rs.core.Response.Status;
-import javax.ws.rs.core.UriBuilder;
+import jakarta.ejb.Stateless;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.NoResultException;
+import jakarta.persistence.OptimisticLockException;
+import jakarta.persistence.PersistenceContext;
+import jakarta.persistence.TypedQuery;
+import jakarta.ws.rs.*;
+import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.Response.Status;
+import jakarta.ws.rs.core.UriBuilder;
 import java.util.List;
 
 /**
@@ -73,7 +77,7 @@ public class CustomerEndpoint
       {
          entity = findByIdQuery.getSingleResult();
       }
-      catch (NoResultException nre)
+      catch (NoResultException _)
       {
          entity = null;
       }

@@ -1,7 +1,7 @@
 package org.agoncal.application.petstore.model;
 
-import javax.persistence.*;
-import javax.validation.constraints.Min;
+import jakarta.persistence.*;
+import jakarta.validation.constraints.Min;
 import java.io.Serializable;
 import java.util.Objects;
 

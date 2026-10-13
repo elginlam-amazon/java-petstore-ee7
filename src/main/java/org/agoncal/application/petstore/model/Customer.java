@@ -1,15 +1,31 @@
 package org.agoncal.application.petstore.model;
 
 import org.agoncal.application.petstore.constraints.Email;
-import javax.annotation.Nullable;
 import org.agoncal.application.petstore.constraints.Login;
 
-import javax.persistence.*;
-import javax.validation.Valid;
-import javax.validation.constraints.NotNull;
-import javax.validation.constraints.Past;
-import javax.validation.constraints.Size;
-import javax.xml.bind.annotation.XmlRootElement;
+import jakarta.persistence.Column;
+
+import javax.annotation.Nullable;
+import jakarta.persistence.Embedded;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.NamedQueries;
+import jakarta.persistence.NamedQuery;
+import jakarta.persistence.PostLoad;
+import jakarta.persistence.PostPersist;
+import jakarta.persistence.PostUpdate;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.Temporal;
+import jakarta.persistence.TemporalType;
+import jakarta.persistence.Transient;
+import jakarta.persistence.Version;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Past;
+import jakarta.validation.constraints.Size;
+import jakarta.xml.bind.annotation.XmlRootElement;
 import java.io.Serializable;
 import java.security.MessageDigest;
 import java.util.*;
