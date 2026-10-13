@@ -1,14 +1,16 @@
 package org.agoncal.application.petstore.export;
 
 import java.sql.Timestamp;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
-import javax.ejb.LocalBean;
-import javax.ejb.Stateless;
-import javax.persistence.EntityManager;
-import javax.persistence.PersistenceContext;
+import jakarta.ejb.LocalBean;
+import jakarta.ejb.Stateless;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.EntityNotFoundException;
+import jakarta.persistence.PersistenceContext;
 
 import org.agoncal.application.petstore.model.Item;
 
@@ -28,13 +30,27 @@ public class CatalogExportService
    public Date lastCatalogChange()
    {
       Object value = em.createNativeQuery("select max(CURRENT_TIMESTAMP) from Item").getSingleResult();
-      return value == null ? null : new Date(((Timestamp) value).getTime());
+      if (value == null)
+      {
+         return null;
+      }
+      // Hibernate 7 returns java.time types for native queries without a result mapping;
+      // Hibernate 6 and older returned java.sql.Timestamp. Accept both.
+      Timestamp timestamp = value instanceof LocalDateTime localDateTime ? Timestamp.valueOf(localDateTime) : (Timestamp) value;
+      return new Date(timestamp.getTime());
    }
 
    public CatalogRow reload(Item item)
    {
-      em.refresh(item);
-      return new CatalogRow(item.getProduct().getCategory().getName(), item.getName(), item.getUnitCost(), 1);
+      // Jakarta Persistence / Hibernate 7: refresh() of a detached entity throws IllegalArgumentException,
+      // so load the managed instance first when the item comes from a view.
+      Item managed = em.contains(item) ? item : em.find(Item.class, item.getId());
+      if (managed == null)
+      {
+         throw new EntityNotFoundException("Item " + item.getId() + " no longer exists");
+      }
+      em.refresh(managed);
+      return new CatalogRow(managed.getProduct().getCategory().getName(), managed.getName(), managed.getUnitCost(), 1);
    }
 
    public List<CatalogRow> catalog()

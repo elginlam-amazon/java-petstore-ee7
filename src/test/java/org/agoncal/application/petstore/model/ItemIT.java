@@ -3,15 +3,14 @@ package org.agoncal.application.petstore.model;
 import org.jboss.arquillian.container.test.api.Deployment;
 import org.jboss.arquillian.junit.Arquillian;
 import org.jboss.shrinkwrap.api.ShrinkWrap;
-import org.jboss.shrinkwrap.api.asset.EmptyAsset;
 import org.jboss.shrinkwrap.api.spec.JavaArchive;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import javax.inject.Inject;
-import javax.validation.Validator;
-import javax.xml.bind.JAXBContext;
-import javax.xml.bind.Marshaller;
+import jakarta.inject.Inject;
+import jakarta.validation.Validator;
+import jakarta.xml.bind.JAXBContext;
+import jakarta.xml.bind.Marshaller;
 import java.io.StringWriter;
 
 import static org.junit.Assert.assertEquals;
@@ -37,7 +36,7 @@ public class ItemIT {
     public static JavaArchive jar() {
         return ShrinkWrap.create(JavaArchive.class)
                 .addClasses(Category.class, Product.class, Item.class)
-                .addAsManifestResource(EmptyAsset.INSTANCE, "beans.xml");
+                .addAsManifestResource("test-beans.xml", "beans.xml");
     }
 
     // ======================================
