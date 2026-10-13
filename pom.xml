@@ -32,6 +32,9 @@
     <!-- Other -->
     <version.swagger>1.6.9</version.swagger>
     <version.log4j>2.19.0</version.log4j>
+    <!-- Seed for JEE-T11 (#377): catalog export to Excel (Apache POI) and PDF (OpenPDF, com.lowagie) -->
+    <version.poi>4.1.2</version.poi>
+    <version.openpdf>1.3.43</version.openpdf>
     <!--Maven Plugins & co-->
     <version.maven.wildfly.plugin>4.0.0.Final</version.maven.wildfly.plugin>
     <version.maven.war.plugin>3.1.0</version.maven.war.plugin>
@@ -120,6 +123,17 @@
   </dependencyManagement>
 
   <dependencies>
+    <!-- Seed for JEE-T11 (#377): high-risk output paths for the structural golden-master -->
+    <dependency>
+      <groupId>org.apache.poi</groupId>
+      <artifactId>poi-ooxml</artifactId>
+      <version>${version.poi}</version>
+    </dependency>
+    <dependency>
+      <groupId>com.github.librepdf</groupId>
+      <artifactId>openpdf</artifactId>
+      <version>${version.openpdf}</version>
+    </dependency>
     <dependency>
       <groupId>io.swagger</groupId>
       <artifactId>swagger-annotations</artifactId>
