@@ -6,14 +6,13 @@ import org.agoncal.application.petstore.view.shopping.ShoppingCartItem;
 import org.jboss.arquillian.container.test.api.Deployment;
 import org.jboss.arquillian.junit.Arquillian;
 import org.jboss.shrinkwrap.api.ShrinkWrap;
-import org.jboss.shrinkwrap.api.asset.EmptyAsset;
 import org.jboss.shrinkwrap.api.spec.JavaArchive;
 import org.junit.Assert;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -55,7 +54,7 @@ public class PurchaseOrderServiceIT
             .addClass(UserRole.class)
             .addClass(ValidationException.class)
             .addAsManifestResource("META-INF/persistence.xml", "persistence.xml")
-            .addAsManifestResource(EmptyAsset.INSTANCE, "beans.xml");
+            .addAsManifestResource("test-beans.xml", "beans.xml");
    }
 
    // ======================================
@@ -91,7 +90,7 @@ public class PurchaseOrderServiceIT
 
       // Finds the object from the database and checks it's the right one
       purchaseOrder = purchaseorderservice.findById(purchaseOrder.getId());
-      assertEquals(new Float(12.5F), purchaseOrder.getDiscountRate());
+      assertEquals(Float.valueOf(12.5F), purchaseOrder.getDiscountRate());
 
       // Updates the object
       purchaseOrder.setDiscount(43.25F);
@@ -99,7 +98,7 @@ public class PurchaseOrderServiceIT
 
       // Finds the object from the database and checks it has been updated
       purchaseOrder = purchaseorderservice.findById(purchaseOrder.getId());
-      assertEquals(new Float(43.25F), purchaseOrder.getDiscountRate());
+      assertEquals(Float.valueOf(43.25F), purchaseOrder.getDiscountRate());
 
       // Deletes the object from the database and checks it's not there anymore
       purchaseorderservice.remove(purchaseOrder);

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- beans.xml for the Arquillian test archives. CDI 4 treats an empty beans.xml as
+     bean-discovery-mode="annotated"; "all" keeps the CDI 1.1 behavior the producers rely on. -->
+<beans xmlns="https://jakarta.ee/xml/ns/jakartaee" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="https://jakarta.ee/xml/ns/jakartaee https://jakarta.ee/xml/ns/jakartaee/beans_4_1.xsd"
+       version="4.1" bean-discovery-mode="all">
+</beans>

@@ -7,13 +7,12 @@ import org.agoncal.application.petstore.model.Product;
 import org.jboss.arquillian.container.test.api.Deployment;
 import org.jboss.arquillian.junit.Arquillian;
 import org.jboss.shrinkwrap.api.ShrinkWrap;
-import org.jboss.shrinkwrap.api.asset.EmptyAsset;
 import org.jboss.shrinkwrap.api.spec.JavaArchive;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import static org.junit.Assert.*;
 
@@ -42,7 +41,7 @@ public class OrderLineBeanIT
             .addClass(Product.class)
             .addClass(Item.class)
             .addAsManifestResource("META-INF/persistence.xml", "persistence.xml")
-            .addAsManifestResource(EmptyAsset.INSTANCE, "beans.xml");
+            .addAsManifestResource("test-beans.xml", "beans.xml");
    }
 
    // ======================================
@@ -73,7 +72,7 @@ public class OrderLineBeanIT
 
       // Finds the object from the database and checks it's the right one
       orderLine = orderlinebean.findById(orderLine.getId());
-      assertEquals(new Integer(77), orderLine.getQuantity());
+      assertEquals(Integer.valueOf(77), orderLine.getQuantity());
 
       // Deletes the object from the database and checks it's not there anymore
       orderlinebean.setId(orderLine.getId());

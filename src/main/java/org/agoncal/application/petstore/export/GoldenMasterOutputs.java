@@ -48,7 +48,7 @@ public final class GoldenMasterOutputs
       }
       write(new File(dir, "catalog.xlsx"), CatalogExcelExport.export(fixedCatalog(), fixedAsOf()));
       write(new File(dir, "catalog.pdf"), CatalogPdfExport.export(fixedCatalog(), fixedAsOf()));
-      System.out.println("golden-master outputs written to " + dir);
+      IO.println("golden-master outputs written to " + dir);
    }
 
    private static void write(File f, byte[] bytes) throws Exception
