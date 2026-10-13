@@ -7,9 +7,9 @@ import org.agoncal.application.petstore.util.Loggable;
 import org.agoncal.application.petstore.view.AbstractBean;
 import org.agoncal.application.petstore.view.CatchException;
 
-import javax.enterprise.context.SessionScoped;
-import javax.inject.Inject;
-import javax.inject.Named;
+import jakarta.enterprise.context.SessionScoped;
+import jakarta.inject.Inject;
+import jakarta.inject.Named;
 import java.io.Serializable;
 import java.util.List;
 

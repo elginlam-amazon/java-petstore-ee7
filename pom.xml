@@ -11,8 +11,6 @@
 
   <properties>
     <!-- Java EE and App servers -->
-    <version.javaee>7.0</version.javaee>
-    <version.jboss-javaee>1.1.1.Final</version.jboss-javaee>
     <version.wildfly>26.1.3.Final</version.wildfly>
     <!-- Test -->
     <version.junit>4.13.2</version.junit>
@@ -26,7 +24,7 @@
     <!-- UI (WebJar, Bootstrap, JQuery...) -->
     <version.bootstrap>3.3.7-1</version.bootstrap>
     <version.jquery>2.2.4</version.jquery>
-    <version.primefaces>6.1</version.primefaces>
+    <version.primefaces>14.0.18</version.primefaces>
     <version.primefaces-themes>1.1.0</version.primefaces-themes>
     <version.fontawesome>4.7.0</version.fontawesome>
     <!-- Other -->
@@ -34,29 +32,27 @@
     <version.log4j>2.19.0</version.log4j>
     <!--Maven Plugins & co-->
     <version.maven.wildfly.plugin>4.0.0.Final</version.maven.wildfly.plugin>
-    <version.maven.war.plugin>3.1.0</version.maven.war.plugin>
+    <version.maven.war.plugin>3.5.1</version.maven.war.plugin>
     <version.maven.compiler.plugin>3.1</version.maven.compiler.plugin>
     <version.maven.dependency.plugin>2.10</version.maven.dependency.plugin>
     <skipITs>true</skipITs>
-    <version.maven.surefire.plugin>3.0.0-M8</version.maven.surefire.plugin>
-    <version.maven.failsafe.plugin>3.0.0-M8</version.maven.failsafe.plugin>
+    <version.maven.surefire.plugin>3.5.6</version.maven.surefire.plugin>
+    <version.maven.failsafe.plugin>3.5.6</version.maven.failsafe.plugin>
     <version.swagger.plugin>3.1.8</version.swagger.plugin>
     <!-- Project -->
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <maven.compiler.source>1.8</maven.compiler.source>
-    <maven.compiler.target>1.8</maven.compiler.target>
+    <maven.compiler.source>25</maven.compiler.source>
+    <maven.compiler.target>25</maven.compiler.target>
   </properties>
 
   <dependencyManagement>
     <dependencies>
-      <!-- App servers -->
+      <!-- Byte Buddy older than 1.17 cannot read Java 21+ class files -->
       <dependency>
-        <groupId>org.jboss.spec</groupId>
-        <artifactId>jboss-javaee-7.0</artifactId>
-        <version>${version.jboss-javaee}</version>
-        <type>pom</type>
-        <scope>provided</scope>
+        <groupId>net.bytebuddy</groupId>
+        <artifactId>byte-buddy</artifactId>
+        <version>1.17.8</version>
       </dependency>
       <!-- Test -->
       <dependency>
@@ -99,6 +95,7 @@
         <groupId>org.primefaces</groupId>
         <artifactId>primefaces</artifactId>
         <version>${version.primefaces}</version>
+        <classifier>jakarta</classifier>
       </dependency>
       <dependency>
         <groupId>org.primefaces.themes</groupId>
@@ -131,6 +128,55 @@
       <artifactId>swagger-annotations</artifactId>
       <version>${version.swagger}</version>
     </dependency>
+    <!-- Jakarta EE 11 APIs: provided by the application server (WildFly 40+) -->
+    <dependency>
+      <groupId>jakarta.annotation</groupId>
+      <artifactId>jakarta.annotation-api</artifactId>
+      <version>3.0.0</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>jakarta.ejb</groupId>
+      <artifactId>jakarta.ejb-api</artifactId>
+      <version>4.0.1</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>jakarta.enterprise</groupId>
+      <artifactId>jakarta.enterprise.cdi-api</artifactId>
+      <version>4.1.0</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>jakarta.persistence</groupId>
+      <artifactId>jakarta.persistence-api</artifactId>
+      <version>3.2.0</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>jakarta.validation</groupId>
+      <artifactId>jakarta.validation-api</artifactId>
+      <version>3.1.1</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>jakarta.ws.rs</groupId>
+      <artifactId>jakarta.ws.rs-api</artifactId>
+      <version>4.0.0</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>jakarta.xml.bind</groupId>
+      <artifactId>jakarta.xml.bind-api</artifactId>
+      <version>4.0.5</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>jakarta.faces</groupId>
+      <artifactId>jakarta.faces-api</artifactId>
+      <version>4.1.2</version>
+      <scope>provided</scope>
+    </dependency>
     <dependency>
       <groupId>org.apache.logging.log4j</groupId>
       <artifactId>log4j-core</artifactId>
@@ -146,6 +192,7 @@
     <dependency>
       <groupId>org.primefaces</groupId>
       <artifactId>primefaces</artifactId>
+      <classifier>jakarta</classifier>
     </dependency>
     <dependency>
       <groupId>org.primefaces.themes</groupId>
@@ -154,12 +201,6 @@
     <dependency>
       <groupId>org.webjars.bower</groupId>
       <artifactId>fontawesome</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>org.jboss.spec</groupId>
-      <artifactId>jboss-javaee-7.0</artifactId>
-      <type>pom</type>
-      <scope>provided</scope>
     </dependency>
     <!-- TEST -->
     <dependency>
@@ -238,6 +279,10 @@
         <artifactId>swagger-maven-plugin</artifactId>
         <version>${version.swagger.plugin}</version>
         <configuration>
+          <!-- swagger-maven-plugin 3.1.x (Swagger 1.5) only understands javax.ws.rs annotations: run against the
+               jakarta.ws.rs endpoints it overwrites src/main/webapp/swagger.json with an empty spec. Generation is
+               skipped and the committed swagger.json is kept until a Jakarta-aware generator is chosen. -->
+          <skipSwaggerGeneration>true</skipSwaggerGeneration>
           <apiSources>
             <apiSource>
               <springmvc>false</springmvc>

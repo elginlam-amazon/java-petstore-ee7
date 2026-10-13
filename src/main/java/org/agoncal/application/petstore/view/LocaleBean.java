@@ -2,10 +2,10 @@ package org.agoncal.application.petstore.view;
 
 import org.agoncal.application.petstore.util.Loggable;
 
-import javax.enterprise.context.SessionScoped;
-import javax.enterprise.inject.Produces;
-import javax.faces.context.FacesContext;
-import javax.inject.Named;
+import jakarta.enterprise.context.SessionScoped;
+import jakarta.enterprise.inject.Produces;
+import jakarta.faces.context.FacesContext;
+import jakarta.inject.Named;
 import java.io.Serializable;
 import java.util.Locale;
 
@@ -36,7 +36,7 @@ public class LocaleBean implements Serializable {
     }
 
     public void setLanguage(String language) {
-        locale = new Locale(language);
+        locale = Locale.of(language);
         FacesContext.getCurrentInstance().getViewRoot().setLocale(locale);
     }
 }
