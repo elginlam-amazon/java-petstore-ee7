@@ -16,7 +16,7 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
  */
 public class WriteWorkbooks {
 
-    public static void main(String[] args) throws IOException {
+    void main(String[] args) throws IOException {
         File dir = new File(args[0]);
         dir.mkdirs();
         ReportStyles styles = new ReportStyles();

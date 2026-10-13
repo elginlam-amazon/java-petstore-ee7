@@ -1,7 +1,7 @@
 package org.agoncal.application.petstore.util;
 
-import javax.enterprise.inject.Produces;
-import javax.enterprise.inject.spi.InjectionPoint;
+import jakarta.enterprise.inject.Produces;
+import jakarta.enterprise.inject.spi.InjectionPoint;
 import java.io.IOException;
 import java.util.Properties;
 

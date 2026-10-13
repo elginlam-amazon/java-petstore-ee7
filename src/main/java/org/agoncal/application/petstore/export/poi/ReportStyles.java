@@ -1,15 +1,18 @@
 package org.agoncal.application.petstore.export.poi;
 
-import static org.apache.poi.ss.usermodel.CellStyle.ALIGN_LEFT;
-
 import org.apache.poi.hssf.usermodel.HSSFCellStyle;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;
+import org.apache.poi.ss.usermodel.CellType;
+import org.apache.poi.ss.usermodel.FillPatternType;
 import org.apache.poi.ss.usermodel.Font;
+import org.apache.poi.ss.usermodel.HorizontalAlignment;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFCellStyle;
+
+import static org.apache.poi.ss.usermodel.HorizontalAlignment.LEFT;
 
 /**
  * JEE-T10 (#376) seed: Apache POI 3.x style calls that POI 3.17+ no longer has.
@@ -30,73 +33,73 @@ public class ReportStyles {
         next = 0;
 
         CellStyle s = wb.createCellStyle();
-        s.setAlignment(CellStyle.ALIGN_CENTER); // T10:A1
+        s.setAlignment(HorizontalAlignment.CENTER); // T10:A1
         put(sheet, "A1", s);
 
         s = wb.createCellStyle();
-        s.setAlignment(CellStyle.ALIGN_GENERAL); // T10:A2
+        s.setAlignment(HorizontalAlignment.GENERAL); // T10:A2
         put(sheet, "A2", s);
 
         s = wb.createCellStyle();
-        s.setAlignment((short) 2); // T10:A3
+        s.setAlignment(HorizontalAlignment.forInt((short) 2)); // T10:A3
         put(sheet, "A3", s);
 
         s = wb.createCellStyle();
-        s.setAlignment(bodyAlign); // T10:A4
+        s.setAlignment(HorizontalAlignment.forInt(bodyAlign)); // T10:A4
         put(sheet, "A4", s);
 
         s = wb.createCellStyle();
-        s.setAlignment(TOTAL_ALIGN); // T10:A5
+        s.setAlignment(HorizontalAlignment.forInt(TOTAL_ALIGN)); // T10:A5
         put(sheet, "A5", s);
 
         HSSFCellStyle hs = (HSSFCellStyle) wb.createCellStyle();
-        hs.setAlignment(HSSFCellStyle.ALIGN_JUSTIFY); // T10:A6
+        hs.setAlignment(HorizontalAlignment.JUSTIFY); // T10:A6
         put(sheet, "A6", hs);
 
         hs = (HSSFCellStyle) wb.createCellStyle();
-        hs.setAlignment((short) 4); // T10:A7
+        hs.setAlignment(HorizontalAlignment.forInt((short) 4)); // T10:A7
         put(sheet, "A7", hs);
 
         s = wb.createCellStyle();
-        s.setAlignment(ALIGN_LEFT); // T10:A8
+        s.setAlignment(LEFT); // T10:A8
         put(sheet, "A8", s);
 
         s = wb.createCellStyle();
-        s.setFillPattern(CellStyle.SOLID_FOREGROUND); // T10:F1
+        s.setFillPattern(FillPatternType.SOLID_FOREGROUND); // T10:F1
         put(sheet, "F1", s);
 
         s = wb.createCellStyle();
-        s.setFillPattern(HSSFCellStyle.FINE_DOTS); // T10:F2
+        s.setFillPattern(FillPatternType.FINE_DOTS); // T10:F2
         put(sheet, "F2", s);
 
         s = wb.createCellStyle();
-        s.setFillPattern((short) 1); // T10:F3
+        s.setFillPattern(FillPatternType.forInt((short) 1)); // T10:F3
         put(sheet, "F3", s);
 
         s = wb.createCellStyle();
-        s.setFillPattern(bodyFill); // T10:F4
+        s.setFillPattern(FillPatternType.forInt(bodyFill)); // T10:F4
         put(sheet, "F4", s);
 
         hs = (HSSFCellStyle) wb.createCellStyle();
-        hs.setFillPattern((short) 18); // T10:F5
+        hs.setFillPattern(FillPatternType.forInt((short) 18)); // T10:F5
         put(sheet, "F5", hs);
 
         // Control sites: rewrite-apache's own recipes (ReplaceSetBoldweightWithSetBold, ReplaceSetCellType).
         s = wb.createCellStyle();
         Font bold = wb.createFont();
-        bold.setBoldweight(Font.BOLDWEIGHT_BOLD); // T10:C1
+        bold.setBold(true); // T10:C1
         s.setFont(bold);
         put(sheet, "C1", s);
 
         Row text = sheet.createRow(next++);
         text.createCell(0).setCellValue("C2");
         Cell c2 = text.createCell(1);
-        c2.setCellType(Cell.CELL_TYPE_STRING); // T10:C2
+        c2.setCellType(CellType.STRING); // T10:C2
 
         Row number = sheet.createRow(next++);
         number.createCell(0).setCellValue("C3");
         Cell c3 = number.createCell(1);
-        c3.setCellType(0); // T10:C3
+        c3.setCellType(CellType.NUMERIC); // T10:C3
     }
 
     /** Styled cells for the XSSF (.xlsx) workbook. */
@@ -105,15 +108,15 @@ public class ReportStyles {
         next = 0;
 
         XSSFCellStyle xs = (XSSFCellStyle) wb.createCellStyle();
-        xs.setAlignment((short) 3); // T10:X1
+        xs.setAlignment(HorizontalAlignment.forInt((short) 3)); // T10:X1
         put(sheet, "X1", xs);
 
         xs = (XSSFCellStyle) wb.createCellStyle();
-        xs.setFillPattern((short) 1); // T10:X2
+        xs.setFillPattern(FillPatternType.forInt((short) 1)); // T10:X2
         put(sheet, "X2", xs);
 
         xs = (XSSFCellStyle) wb.createCellStyle();
-        xs.setAlignment(XSSFCellStyle.ALIGN_CENTER); // T10:X3
+        xs.setAlignment(HorizontalAlignment.CENTER); // T10:X3
         put(sheet, "X3", xs);
     }
 

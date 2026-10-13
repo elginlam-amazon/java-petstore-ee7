@@ -1,6 +1,6 @@
 package org.agoncal.application.petstore.view;
 
-import javax.inject.Qualifier;
+import jakarta.inject.Qualifier;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 
