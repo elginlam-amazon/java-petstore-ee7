@@ -1,7 +1,7 @@
 package org.agoncal.application.petstore.view.admin;
 
 import org.agoncal.application.petstore.model.Country;
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import org.jboss.arquillian.container.test.api.Deployment;
 import org.jboss.arquillian.junit.Arquillian;
