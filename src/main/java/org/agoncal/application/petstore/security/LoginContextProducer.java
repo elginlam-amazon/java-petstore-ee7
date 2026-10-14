@@ -40,9 +40,9 @@ public class LoginContextProducer
       {
          return new LoginContext(loginModuleName, callbackHandler);
       }
-      catch (Exception e)
+      catch (Exception _)
       {
-         System.out.println("ouch!!!");
+         IO.println("ouch!!!");
          return null;
       }
    }
