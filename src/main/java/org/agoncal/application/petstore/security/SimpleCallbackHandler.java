@@ -39,14 +39,12 @@ public class SimpleCallbackHandler implements CallbackHandler
    {
       for (Callback callback : callbacks)
       {
-         if (callback instanceof NameCallback)
+         if (callback instanceof NameCallback nameCallback)
          {
-            NameCallback nameCallback = (NameCallback) callback;
             nameCallback.setName(credentials.getLogin());
          }
-         else if (callback instanceof PasswordCallback)
+         else if (callback instanceof PasswordCallback passwordCallback)
          {
-            PasswordCallback passwordCallback = (PasswordCallback) callback;
             passwordCallback.setPassword(credentials.getPassword().toCharArray());
          }
          else

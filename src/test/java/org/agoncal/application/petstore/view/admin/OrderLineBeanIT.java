@@ -73,7 +73,7 @@ public class OrderLineBeanIT
 
       // Finds the object from the database and checks it's the right one
       orderLine = orderlinebean.findById(orderLine.getId());
-      assertEquals(new Integer(77), orderLine.getQuantity());
+      assertEquals(Integer.valueOf(77), orderLine.getQuantity());
 
       // Deletes the object from the database and checks it's not there anymore
       orderlinebean.setId(orderLine.getId());
