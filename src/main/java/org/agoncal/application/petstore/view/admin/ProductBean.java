@@ -1,5 +1,6 @@
 package org.agoncal.application.petstore.view.admin;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
@@ -45,6 +46,7 @@ import org.agoncal.application.petstore.util.Loggable;
 public class ProductBean implements Serializable
 {
 
+   @Serial
    private static final long serialVersionUID = 1L;
 
    /*

@@ -34,22 +34,27 @@
     <version.log4j>2.19.0</version.log4j>
     <!--Maven Plugins & co-->
     <version.maven.wildfly.plugin>4.0.0.Final</version.maven.wildfly.plugin>
-    <version.maven.war.plugin>3.1.0</version.maven.war.plugin>
-    <version.maven.compiler.plugin>3.1</version.maven.compiler.plugin>
+    <version.maven.war.plugin>3.5.1</version.maven.war.plugin>
+    <version.maven.compiler.plugin>3.15.0</version.maven.compiler.plugin>
     <version.maven.dependency.plugin>2.10</version.maven.dependency.plugin>
     <skipITs>true</skipITs>
-    <version.maven.surefire.plugin>3.0.0-M8</version.maven.surefire.plugin>
-    <version.maven.failsafe.plugin>3.0.0-M8</version.maven.failsafe.plugin>
+    <version.maven.surefire.plugin>3.5.6</version.maven.surefire.plugin>
+    <version.maven.failsafe.plugin>3.5.6</version.maven.failsafe.plugin>
     <version.swagger.plugin>3.1.8</version.swagger.plugin>
     <!-- Project -->
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <maven.compiler.source>1.8</maven.compiler.source>
-    <maven.compiler.target>1.8</maven.compiler.target>
+    <maven.compiler.release>25</maven.compiler.release>
   </properties>
 
   <dependencyManagement>
     <dependencies>
+      <!-- Byte Buddy older than 1.17 cannot read Java 21+ class files -->
+      <dependency>
+        <groupId>net.bytebuddy</groupId>
+        <artifactId>byte-buddy</artifactId>
+        <version>1.17.8</version>
+      </dependency>
       <!-- App servers -->
       <dependency>
         <groupId>org.jboss.spec</groupId>
@@ -149,6 +154,10 @@
       <groupId>org.webjars.bower</groupId>
       <artifactId>fontawesome</artifactId>
     </dependency>
+    <!-- The Java EE 7 BOM below supplies every javax.* API this application compiles
+         against (javax.inject, javax.annotation, javax.xml.bind, ...) and the container
+         supplies them at runtime, so no standalone API/impl artifact is declared here:
+         bundling one would duplicate a container API inside WEB-INF/lib. -->
     <dependency>
       <groupId>org.jboss.spec</groupId>
       <artifactId>jboss-javaee-7.0</artifactId>
@@ -203,6 +212,13 @@
         <groupId>org.wildfly.plugins</groupId>
         <artifactId>wildfly-maven-plugin</artifactId>
         <version>${version.maven.wildfly.plugin}</version>
+      </plugin>
+      <plugin>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>${version.maven.compiler.plugin}</version>
+        <configuration>
+          <release>${maven.compiler.release}</release>
+        </configuration>
       </plugin>
       <plugin>
         <artifactId>maven-war-plugin</artifactId>
