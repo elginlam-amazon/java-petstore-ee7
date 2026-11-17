@@ -57,7 +57,7 @@ public class CustomerService extends AbstractService<Customer> implements Serial
          typedQuery.getSingleResult();
          return true;
       }
-      catch (NoResultException e)
+      catch (NoResultException _)
       {
          return false;
       }
@@ -80,7 +80,7 @@ public class CustomerService extends AbstractService<Customer> implements Serial
       {
          return typedQuery.getSingleResult();
       }
-      catch (NoResultException e)
+      catch (NoResultException _)
       {
          return null;
       }

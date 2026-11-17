@@ -73,7 +73,7 @@ public class CustomerEndpoint
       {
          entity = findByIdQuery.getSingleResult();
       }
-      catch (NoResultException nre)
+      catch (NoResultException _)
       {
          entity = null;
       }
