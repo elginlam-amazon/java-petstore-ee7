@@ -8,6 +8,7 @@ import javax.security.auth.login.LoginContext;
 import javax.security.auth.login.LoginException;
 import java.io.File;
 import java.net.URISyntaxException;
+import java.util.logging.Logger;
 
 /**
  * @author blep
@@ -24,6 +25,9 @@ public class LoginContextProducer
 
    @Inject
    private SimpleCallbackHandler callbackHandler;
+
+   @Inject
+   private Logger log;
 
    // ======================================
    // =          Business methods          =
@@ -42,7 +46,7 @@ public class LoginContextProducer
       }
       catch (Exception e)
       {
-         System.out.println("ouch!!!");
+         log.severe("/!\\ Could not create a LoginContext for login module " + loginModuleName + " - " + e.getMessage());
          return null;
       }
    }

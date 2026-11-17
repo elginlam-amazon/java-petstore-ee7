@@ -76,7 +76,7 @@ public class OrderLineServiceIT
 
       // Finds the object from the database and checks it's the right one
       orderLine = orderlineservice.findById(orderLine.getId());
-      assertEquals(new Integer(77), orderLine.getQuantity());
+      assertEquals(Integer.valueOf(77), orderLine.getQuantity());
 
       // Updates the object
       orderLine.setQuantity(88);
@@ -84,7 +84,7 @@ public class OrderLineServiceIT
 
       // Finds the object from the database and checks it has been updated
       orderLine = orderlineservice.findById(orderLine.getId());
-      assertEquals(new Integer(88), orderLine.getQuantity());
+      assertEquals(Integer.valueOf(88), orderLine.getQuantity());
 
       // Deletes the object from the database and checks it's not there anymore
       orderlineservice.remove(orderLine);
